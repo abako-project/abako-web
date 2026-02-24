@@ -28,6 +28,7 @@ import {
   isEscrowModalDismissed,
 } from '@components/features/payments/EscrowPaymentModal';
 import { cn } from '@lib/cn';
+import { budgetPlanckToHuman } from '@lib/dusdUnits';
 import type { Milestone, Project } from '@/types/index';
 
 // ---------------------------------------------------------------------------
@@ -39,15 +40,6 @@ function formatCurrency(value: string | number | null | undefined): string {
   const num = typeof value === 'string' ? parseFloat(value) : value;
   if (isNaN(num)) return '$0';
   return `$${num.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-}
-
-function getMilestoneBudgetNum(milestone: Milestone): number {
-  if (milestone.budget === null || milestone.budget === undefined) return 0;
-  const val =
-    typeof milestone.budget === 'string'
-      ? parseFloat(milestone.budget)
-      : milestone.budget;
-  return isNaN(val) ? 0 : val;
 }
 
 function formatDeliveryDate(
@@ -170,16 +162,22 @@ export default function ScopeReviewPage(): React.JSX.Element {
 
     // --- Accept flow ---
     const totalCost = data.project.milestones.reduce(
-      (acc, m) => acc + getMilestoneBudgetNum(m),
+      (acc, m) => acc + budgetPlanckToHuman(m.budget),
       0
     );
 
     // Check if user has enough DUSD
     const hasFunds = dusdBalance.data?.hasSufficientFunds(totalCost) ?? false;
     if (!hasFunds) {
+      // Calculate how much more the user needs to deposit
+      const currentBalance = dusdBalance.data?.dusdFree
+        ? parseFloat(dusdBalance.data.dusdFree)
+        : 0;
+      const shortfall = Math.max(0, totalCost - currentBalance);
+
       // Navigate to on-ramp page — user needs to deposit DUSD first
       if (isEscrowModalDismissed()) {
-        navigate(`/payments/${id}/fund`);
+        navigate(`/payments/${id}/fund`, { state: { totalCost, currentBalance, shortfall } });
       } else {
         setShowEscrowModal(true);
       }
@@ -200,7 +198,16 @@ export default function ScopeReviewPage(): React.JSX.Element {
 
   function handleEscrowModalClose(): void {
     setShowEscrowModal(false);
-    navigate(`/payments/${id}/fund`);
+    const currentBalance = dusdBalance.data?.dusdFree
+      ? parseFloat(dusdBalance.data.dusdFree)
+      : 0;
+    const shortfall = data
+      ? Math.max(0, data.project.milestones.reduce((acc, m) => acc + budgetPlanckToHuman(m.budget), 0) - currentBalance)
+      : 0;
+    const totalCostForModal = data
+      ? data.project.milestones.reduce((acc, m) => acc + budgetPlanckToHuman(m.budget), 0)
+      : 0;
+    navigate(`/payments/${id}/fund`, { state: { totalCost: totalCostForModal, currentBalance, shortfall } });
   }
 
   // --------------------------------------------------------------------------
@@ -252,7 +259,7 @@ export default function ScopeReviewPage(): React.JSX.Element {
   const isMutating = isAccepting || isRejecting;
 
   const totalCost = project.milestones.reduce(
-    (acc, m) => acc + getMilestoneBudgetNum(m),
+    (acc, m) => acc + budgetPlanckToHuman(m.budget),
     0
   );
 
@@ -435,7 +442,7 @@ function BalanceIndicator({ dusdFree, isLoading, totalCost, hasSufficientFunds }
         Required: <strong>{totalCost.toFixed(3)}</strong>
         {hasSufficientFunds
           ? <span className="ml-2">— Sufficient balance to fund escrow</span>
-          : <span className="ml-2">— Insufficient balance, you need to deposit more DUSD</span>
+          : <span className="ml-2">— You need {(totalCost - parseFloat(dusdFree ?? '0')).toFixed(0)} more DUSD</span>
         }
       </span>
     </div>
@@ -577,7 +584,7 @@ function MilestoneItem({ milestone, index, isLast }: MilestoneItemProps): React.
         <div className="flex shrink-0 flex-col items-end gap-1.5">
           {milestone.budget !== null && milestone.budget !== undefined && (
             <span className="text-sm font-semibold text-[#f5f5f5]">
-              {formatCurrency(milestone.budget)}
+              {formatCurrency(budgetPlanckToHuman(milestone.budget))}
             </span>
           )}
           {milestone.deliveryDate && (

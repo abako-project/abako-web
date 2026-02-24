@@ -20,6 +20,7 @@ import {
   flowMilestoneState,
   MilestoneState,
 } from '@lib/flowStates';
+import { budgetPlanckToHuman } from '@lib/dusdUnits';
 import type { Milestone, User } from '@/types/index';
 
 interface MilestoneActionsProps {
@@ -130,7 +131,7 @@ function SubmitWorkAction({
 
   const budgetDisplay =
     milestone.budget !== undefined && milestone.budget !== null
-      ? `${milestone.budget} USD`
+      ? `${budgetPlanckToHuman(milestone.budget).toLocaleString('en-US')} DUSD`
       : 'Budget Pending';
 
   return (

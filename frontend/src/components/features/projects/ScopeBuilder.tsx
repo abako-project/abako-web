@@ -19,6 +19,7 @@ import { useState, useCallback } from 'react';
 import { Button, Input, Label, Card, CardContent } from '@components/ui';
 import { useEnums } from '@hooks/useEnums';
 import { useSubmitScope } from '@hooks/useScope';
+import { budgetPlanckToHuman } from '@lib/dusdUnits';
 import type { Milestone } from '@/types/index';
 
 interface ScopeBuilderProps {
@@ -79,7 +80,7 @@ function milestoneToFormState(m: Milestone): MilestoneFormState {
   return {
     title: m.title ?? '',
     description: m.description ?? '',
-    budget: m.budget !== null && m.budget !== undefined ? String(m.budget) : '',
+    budget: m.budget !== null && m.budget !== undefined ? String(budgetPlanckToHuman(m.budget)) : '',
     deliveryTime: m.deliveryTime !== undefined && m.deliveryTime !== null ? String(m.deliveryTime) : '',
     deliveryDate: deliveryDateStr,
     role: m.role ?? '',
@@ -247,7 +248,7 @@ export function ScopeBuilder({
             </span>
             {m.budget && (
               <span className="text-xs text-[#36D399] font-medium">
-                {m.budget} USD
+                {Number(m.budget).toLocaleString('en-US')} DUSD
               </span>
             )}
             <button
@@ -375,7 +376,7 @@ function MilestoneForm({
 
         {/* Budget */}
         <Input
-          label="Budget (USD)"
+          label="Budget (DUSD)"
           type="number"
           step="0.01"
           value={milestone.budget}

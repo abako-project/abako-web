@@ -19,6 +19,7 @@ import {
 } from '@/services';
 import { getAllTasks } from '@/api/adapter';
 import { useAuthStore } from '@/stores/authStore';
+import { dusdToPlanck, parseBudget } from '@lib/dusdUnits';
 
 // ---------------------------------------------------------------------------
 // Response types
@@ -60,13 +61,21 @@ export function useSubmitScope() {
     }: SubmitScopeInput) => {
       const token = useAuthStore.getState().token || '';
 
-      // Cast milestones to the format expected by the service
-      const milestonesData = milestones as unknown as Record<string, unknown>[];
+      // Convert milestone budgets from human-readable DUSD to planck.
+      // The adapter stores these values and uses them directly for on-chain escrow.
+      const milestonesWithPlanckBudgets = milestones.map((m) => ({
+        ...m,
+        budget: m.budget !== null && m.budget !== undefined
+          ? dusdToPlanck(parseBudget(m.budget))
+          : m.budget,
+      }));
+
+      const milestonesData = milestonesWithPlanckBudgets as unknown as Record<string, unknown>[];
 
       await submitScope(
         projectId,
         milestonesData,
-        25, // advancePaymentPercentage
+        100, // advancePaymentPercentage — deposit 100% to escrow
         '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef', // documentHash
         consultantComment || '',
         token
@@ -127,7 +136,18 @@ export function useAcceptScope() {
         throw new Error('No tasks found in the contract to approve');
       }
 
-      await acceptScope(projectId, taskIds, clientResponse || '', token);
+      const result = await acceptScope(projectId, taskIds, clientResponse || '', token);
+
+      // Try to capture paymentId from the approve_scope response.
+      // The adapter may include a paymentId field for on-chain status querying.
+      const maybePaymentId = (result as Record<string, unknown>).paymentId;
+      if (maybePaymentId && typeof maybePaymentId === 'string') {
+        try {
+          localStorage.setItem(`escrow-paymentId-${projectId}`, maybePaymentId);
+        } catch {
+          // localStorage may be unavailable
+        }
+      }
 
       return {
         projectId,

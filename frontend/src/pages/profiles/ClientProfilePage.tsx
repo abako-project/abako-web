@@ -23,8 +23,10 @@ import { Input } from '@components/ui/Input';
 import { Label } from '@components/ui/Label';
 import { Card, CardContent, CardHeader, CardTitle } from '@components/ui/Card';
 import { Spinner } from '@components/ui/Spinner';
+import { StarRating } from '@components/features/ratings/StarRating';
 import { ReviewsList } from '@components/features/ratings/ReviewsList';
 import { MembershipNFTCard } from '@components/features/profile/MembershipNFTCard';
+import { InfoItem } from '@components/features/profile/InfoItem';
 import type { ClientUpdateData, LanguagesMap } from '@/types/index';
 
 // ---------------------------------------------------------------------------
@@ -195,96 +197,149 @@ export default function ClientProfilePage({ clientId, startInEditMode }: ClientP
     );
   }
 
-  // ------- Show mode -------
+  // ------- Show mode (matches DeveloperProfilePage Figma node 1350:15713) -------
+
+  // Compute average rating from the ratings array (ClientRatingsResponse does not include it)
+  const ratings = ratingsData?.ratings ?? [];
+  const averageRating =
+    ratings.length > 0
+      ? ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length
+      : 0;
+
   return (
-    <div className="space-y-6">
-      {/* Profile Header */}
-      <div className="flex items-center gap-6">
-        <img
-          className="w-20 h-20 rounded-full object-cover border-2 border-border bg-muted"
-          src={avatarUrl}
-          alt={client.name}
-          onError={(e) => {
-            (e.target as HTMLImageElement).src = '/images/none.png';
-          }}
-        />
-        <div>
-          <h2 className="text-2xl font-bold text-foreground">{client.name}</h2>
-          <p className="text-muted-foreground">{client.email}</p>
+    <div className="flex flex-col gap-10 w-full">
+      {/* Profile Header - full width, surface-2 bg, border-bottom */}
+      <div className="w-full bg-[var(--base-surface-2,#231f1f)] border-b border-[var(--base-border,#3d3d3d)] px-14 py-8">
+        <div className="flex flex-wrap items-end gap-y-6">
+          <div className="flex flex-1 items-center min-w-0">
+            <div className="flex flex-1 items-center gap-6 pl-4 min-w-0">
+              {/* Avatar 72px */}
+              <div className="relative shrink-0 w-[72px] h-[72px] rounded-full border border-[var(--base-border,#3d3d3d)] overflow-hidden flex items-center justify-center">
+                {/* Fallback icon (always rendered, hidden by image when loaded) */}
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="w-6 h-6 text-[var(--text-dark-secondary,rgba(255,255,255,0.7))]"
+                >
+                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+                {avatarUrl && (
+                  <img
+                    src={avatarUrl}
+                    alt={client.name}
+                    className="absolute inset-0 w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                )}
+              </div>
+
+              {/* Name + company label */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-baseline gap-4">
+                  <span className="text-[30px] font-bold leading-[42px] text-[var(--text-dark-primary,#f5f5f5)] truncate">
+                    {client.name}
+                  </span>
+                  {client.company && (
+                    <span className="text-xs font-medium leading-[18px] text-[var(--text-dark-tertiary,rgba(255,255,255,0.36))] shrink-0">
+                      {client.company}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Right: DAO View button + rating */}
+            <div className="flex items-center gap-8 shrink-0">
+              {/* DAO View button */}
+              <button
+                type="button"
+                onClick={() => navigate('/profile/dao')}
+                className="flex items-center gap-1.5 h-9 px-3 rounded-xl border border-[var(--state-brand-active,#36d399)] bg-[rgba(54,211,153,0.08)] text-sm font-semibold leading-[22px] text-[var(--state-brand-active,#36d399)] hover:bg-[rgba(54,211,153,0.15)] transition-colors"
+              >
+                <i className="ri-government-line text-base leading-none" aria-hidden="true" />
+                DAO View
+              </button>
+
+              <StarRating rating={averageRating} size="md" />
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Membership NFT Card */}
       {membership?.isMember === true && (
-        <MembershipNFTCard
-          membershipId={membership.membershipId}
-          joinedAt={membership.joinedAt}
-          address={membership.address}
-        />
+        <div className="px-14">
+          <MembershipNFTCard
+            membershipId={membership.membershipId}
+            joinedAt={membership.joinedAt}
+            address={membership.address}
+          />
+        </div>
       )}
 
-      {/* Profile Card */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle>Client</CardTitle>
-            <p className="text-sm text-muted-foreground mt-1">
-              {client.company || 'No company'} / {client.department || 'No department'}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => navigate('/profile/dao')}
-              className="flex items-center gap-1.5 h-9 px-3 rounded-xl border border-[var(--state-brand-active,#36d399)] bg-[rgba(54,211,153,0.08)] text-sm font-semibold leading-[22px] text-[var(--state-brand-active,#36d399)] hover:bg-[rgba(54,211,153,0.15)] transition-colors"
-            >
-              <i className="ri-government-line text-base leading-none" aria-hidden="true" />
-              DAO View
-            </button>
-            <Button variant="outline" onClick={handleEnterEdit}>
-              <i className="ri-user-line mr-2" />
-              Edit Profile
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Description */}
-          <div>
-            <h3 className="text-sm font-semibold text-foreground mb-1">Description</h3>
-            <p className="text-muted-foreground">{client.description || 'No description'}</p>
-          </div>
+      {/* Content: two columns */}
+      <div className="flex gap-14 items-start px-14 pb-8 w-full">
+        {/* Left column: Profile card */}
+        <div className="flex-1 min-w-0 bg-[var(--base-surface-2,#231f1f)] border border-[var(--base-border,#3d3d3d)] rounded-xl shadow-[0.5px_0.5px_3px_0px_rgba(255,255,255,0.08)] px-8 py-6">
+          <div className="flex flex-col gap-6">
+            {/* Card header: role label + edit button */}
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-1">
+                <span className="text-lg font-medium leading-7 text-[var(--text-dark-primary,#f5f5f5)]">
+                  Client
+                </span>
+                <span className="text-xs font-normal leading-[18px] text-[var(--text-dark-secondary,rgba(255,255,255,0.7))]">
+                  {client.department || 'No department'}
+                </span>
+              </div>
+              <button
+                onClick={handleEnterEdit}
+                className="h-9 px-3 rounded-xl border border-[var(--base-border,#3d3d3d)] bg-[var(--base-surface-2,#231f1f)] text-sm font-semibold leading-[22px] text-[var(--text-dark-primary,#f5f5f5)] hover:bg-[var(--base-fill-1,#333)] transition-colors"
+              >
+                Edit Information
+              </button>
+            </div>
 
-          {/* Info list */}
-          <div>
-            <ul className="space-y-3 text-sm text-muted-foreground">
-              <li className="flex items-center gap-2">
-                <i className="ri-translate-2 text-base" />
-                <span>{languageNames.length > 0 ? languageNames.join(', ') : 'No languages'}</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <i className="ri-map-pin-line text-base" />
-                <span>{client.location || 'No location'}</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <i className="ri-earth-line text-base" />
-                <span>{client.website || 'No website'}</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <i className="ri-mail-line text-base" />
-                <span>{client.email || 'No email'}</span>
-              </li>
-            </ul>
-          </div>
-        </CardContent>
-      </Card>
+            {/* Description */}
+            <div className="flex flex-col gap-1">
+              <span className="text-sm font-medium leading-[22px] text-[var(--text-dark-tertiary,rgba(255,255,255,0.36))]">
+                Description
+              </span>
+              <p className="text-sm font-medium leading-[22px] text-[var(--text-dark-primary,#f5f5f5)]">
+                {client.description || 'No description available.'}
+              </p>
+            </div>
 
-      {/* Reviews section - ratings given by this client */}
-      <ReviewsList
-        ratings={ratingsData?.ratings ?? []}
-        totalCount={ratingsData?.totalRatings ?? 0}
-        isLoading={isLoadingRatings}
-        resolveReviewerName={(r) => `Developer ${r.developerId}`}
-      />
+            {/* Info items */}
+            <div className="flex flex-col gap-4">
+              {client.company && (
+                <InfoItem icon="ri-building-line" text={client.company} />
+              )}
+              <InfoItem icon="ri-translate-2" text={languageNames.length > 0 ? languageNames.join(', ') : 'No languages'} />
+              <InfoItem icon="ri-map-pin-line" text={client.location || 'No location'} />
+              <InfoItem icon="ri-earth-line" text={client.website || 'No website'} />
+              <InfoItem icon="ri-mail-line" text={client.email || 'No email'} />
+            </div>
+          </div>
+        </div>
+
+        {/* Right column: Reviews */}
+        <ReviewsList
+          ratings={ratingsData?.ratings ?? []}
+          totalCount={ratingsData?.totalRatings ?? 0}
+          isLoading={isLoadingRatings}
+          resolveReviewerName={(r) => `Developer ${r.developerId}`}
+          className="flex-1 min-w-0"
+        />
+      </div>
     </div>
   );
 }

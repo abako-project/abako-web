@@ -21,7 +21,12 @@ import { computeProjectPaymentSummary, isAdvancePaid, isFullyPaid } from '@lib/p
 import { Spinner, Card, CardContent } from '@components/ui';
 import { EmptyState } from '@components/shared/EmptyState';
 import { MilestoneStatusBadge } from '@components/features/projects/MilestoneStatusBadge';
+import { budgetPlanckToHuman } from '@lib/dusdUnits';
 import type { Project, Milestone, ProjectPaymentSummary } from '@/types/index';
+
+function formatCurrency(amount: number): string {
+  return amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
 
 export default function PaymentsPage() {
   const { data, isLoading, error, refetch } = usePayments();
@@ -132,25 +137,30 @@ function ProjectPaymentCard({
       </Link>
 
       {/* Summary stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <StatCard
-          label="Total Budget Funded"
-          value={`$${summary.totalBudgetFunded}`}
+          label="Total Project Budget"
+          value={`$${formatCurrency(summary.totalBudgetFunded)}`}
           color="text-[#F5F5F5]"
         />
         <StatCard
+          label="Escrow Deposited"
+          value={`$${formatCurrency(summary.escrowDeposited)}`}
+          color={summary.escrowDeposited > 0 ? 'text-purple-400' : 'text-[#9B9B9B]'}
+        />
+        <StatCard
           label="Funds Remaining"
-          value={`$${summary.fundsRemaining}`}
+          value={`$${formatCurrency(summary.fundsRemaining)}`}
           color={summary.fundsRemaining > 0 ? 'text-blue-400' : 'text-[#9B9B9B]'}
         />
         <StatCard
           label="Awaiting Payment"
-          value={`$${summary.paymentInAdvanced}`}
+          value={`$${formatCurrency(summary.paymentInAdvanced)}`}
           color="text-orange-400"
         />
         <StatCard
           label="Paid"
-          value={`$${summary.paymentForCompleted}`}
+          value={`$${formatCurrency(summary.paymentForCompleted)}`}
           color="text-[#36D399]"
         />
       </div>
@@ -270,12 +280,7 @@ function MilestonePaymentItem({
   advancePaymentPercentage: number;
   showAdvance: boolean;
 }) {
-  const budget =
-    milestone.budget !== null && milestone.budget !== undefined
-      ? typeof milestone.budget === 'string'
-        ? parseFloat(milestone.budget)
-        : milestone.budget
-      : 0;
+  const budget = budgetPlanckToHuman(milestone.budget);
 
   const advanceAmount = Math.round((budget * advancePaymentPercentage) / 100 * 100) / 100;
 
@@ -324,11 +329,11 @@ function MilestonePaymentItem({
           <div className="flex flex-col items-end gap-1 shrink-0">
             <MilestoneStatusBadge milestone={milestone} />
             <span className="text-sm font-semibold text-[#F5F5F5]">
-              ${budget}
+              ${formatCurrency(budget)}
             </span>
             {showAdvance && advanceAmount > 0 && (
               <span className="text-xs text-orange-400">
-                ({advancePaymentPercentage}% = ${advanceAmount})
+                ({advancePaymentPercentage}% = ${formatCurrency(advanceAmount)})
               </span>
             )}
           </div>

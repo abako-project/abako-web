@@ -64,7 +64,7 @@ interface ProposeScopeResponse {
   [key: string]: unknown;
 }
 
-interface ApproveScopeResponse {
+export interface ApproveScopeResponse {
   success: boolean;
   [key: string]: unknown;
 }

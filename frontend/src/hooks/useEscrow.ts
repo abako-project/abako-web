@@ -11,6 +11,7 @@ import { projectKeys } from '@hooks/useProjects';
 import { paymentKeys } from '@hooks/usePayments';
 import { dusdBalanceKeys } from '@hooks/useKrvxBalance';
 import type { CreatePaymentData, CreatePaymentResponse, ReleasePaymentResponse, AcceptAndPayResponse } from '@/api/virto/types';
+import { dusdToPlanck } from '@lib/dusdUnits';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -18,6 +19,7 @@ import type { CreatePaymentData, CreatePaymentResponse, ReleasePaymentResponse, 
 
 export interface CreateEscrowInput {
   projectId: string;
+  /** Amount in human-readable DUSD (will be converted to planck internally). */
   amount: number;
   recipientAddress: string;
   milestoneId?: string;
@@ -49,7 +51,7 @@ export function useCreateEscrow() {
   return useMutation<CreatePaymentResponse, Error, CreateEscrowInput>({
     mutationFn: async (input: CreateEscrowInput): Promise<CreatePaymentResponse> => {
       const paymentData: CreatePaymentData = {
-        amount: String(input.amount),
+        amount: String(dusdToPlanck(input.amount)),
         recipientAddress: input.recipientAddress,
         projectId: input.projectId,
         milestoneId: input.milestoneId,

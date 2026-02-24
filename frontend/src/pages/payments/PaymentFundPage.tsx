@@ -16,7 +16,7 @@
  */
 
 import * as React from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { usePayment } from '@hooks/usePayments';
 import { useAuthStore } from '@/stores/authStore';
 import { getUserAddress } from '@/api/virto';
@@ -24,7 +24,7 @@ import { useDusdBalance } from '@hooks/useKrvxBalance';
 import { useBrampUser, useRequestDeposit, useConfirmDeposit } from '@hooks/useBramp';
 import { useQueryClient } from '@tanstack/react-query';
 import { walletKeys } from '@hooks/useWalletBalance';
-import { DECIMALS } from '@/api/kreivo/rpc';
+import { budgetPlanckToHuman, dusdToPlanck } from '@lib/dusdUnits';
 import {
   Button,
   Card,
@@ -51,23 +51,28 @@ function formatCurrency(amount: number): string {
   })}`;
 }
 
-function getMilestoneBudget(milestone: Milestone): number {
-  if (milestone.budget === null || milestone.budget === undefined) return 0;
-  const val =
-    typeof milestone.budget === 'string'
-      ? parseFloat(milestone.budget)
-      : milestone.budget;
-  return isNaN(val) ? 0 : val;
-}
-
 // ---------------------------------------------------------------------------
 // PaymentFundPage
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Navigation state passed from ScopeReviewPage
+// ---------------------------------------------------------------------------
+
+interface FundNavigationState {
+  totalCost?: number;
+  currentBalance?: number;
+  shortfall?: number;
+}
+
 export default function PaymentFundPage(): React.JSX.Element {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
+
+  // State passed from ScopeReviewPage — contains the pre-computed shortfall
+  const fundState = (location.state ?? null) as FundNavigationState | null;
   const { data, isLoading, error, refetch } = usePayment(id);
 
   const user = useAuthStore((s) => s.user);
@@ -146,9 +151,22 @@ export default function PaymentFundPage(): React.JSX.Element {
 
   const { project } = data;
   const total = project.milestones.reduce(
-    (acc, m) => acc + getMilestoneBudget(m),
+    (acc, m) => acc + budgetPlanckToHuman(m.budget),
     0
   );
+
+  // If we arrived from ScopeReviewPage with a pre-computed shortfall, use it.
+  // Otherwise fall back to live balance data (if loaded) or the full total.
+  const currentBalanceFromState = fundState?.currentBalance;
+  const currentBalanceFromHook = dusdBalance.data?.dusdFree
+    ? parseFloat(dusdBalance.data.dusdFree)
+    : undefined;
+  const resolvedCurrentBalance =
+    currentBalanceFromState ?? currentBalanceFromHook ?? 0;
+  const depositAmount =
+    fundState?.shortfall !== undefined
+      ? fundState.shortfall
+      : Math.max(0, total - resolvedCurrentBalance);
 
   // --------------------------------------------------------------------------
   // Step handlers
@@ -162,9 +180,10 @@ export default function PaymentFundPage(): React.JSX.Element {
     }
 
     try {
-      // Convert human-readable DUSD to raw planck units.
-      // Backend mints raw units; e.g. with 3 decimals: 15000 DUSD = 15000000 planck.
-      const rawAmount = Math.floor(total * 10 ** DECIMALS.DUSD);
+      // Convert human-readable DUSD to raw planck units for the on-ramp API.
+      // Use depositAmount (the shortfall) so the user only deposits what they're missing,
+      // not the full project cost when they already have a partial balance.
+      const rawAmount = dusdToPlanck(depositAmount);
 
       const result = await requestDepositMutation.mutateAsync({
         userId: brampUser.data.id,
@@ -308,6 +327,8 @@ export default function PaymentFundPage(): React.JSX.Element {
           {step === 'review' && (
             <DepositReviewStep
               total={total}
+              depositAmount={depositAmount}
+              currentBalance={resolvedCurrentBalance}
               dusdFree={dusdBalance.data?.dusdFree}
               isLoadingBalance={dusdBalance.isLoading}
               isLoadingUser={brampUser.isLoading}
@@ -356,7 +377,7 @@ interface SimpleMilestoneRowProps {
 }
 
 function SimpleMilestoneRow({ milestone, index, isLast }: SimpleMilestoneRowProps): React.JSX.Element {
-  const budget = getMilestoneBudget(milestone);
+  const budget = budgetPlanckToHuman(milestone.budget);
 
   return (
     <div
@@ -383,7 +404,12 @@ function SimpleMilestoneRow({ milestone, index, isLast }: SimpleMilestoneRowProp
 // ---------------------------------------------------------------------------
 
 interface DepositReviewStepProps {
+  /** Full project cost (sum of all milestones). Always shown for reference. */
   total: number;
+  /** Amount the user actually needs to deposit (total minus existing balance). */
+  depositAmount: number;
+  /** Resolved current DUSD balance to display in the breakdown. */
+  currentBalance: number;
   dusdFree: string | undefined;
   isLoadingBalance: boolean;
   isLoadingUser: boolean;
@@ -393,29 +419,53 @@ interface DepositReviewStepProps {
 
 function DepositReviewStep({
   total,
-  dusdFree,
+  depositAmount,
+  currentBalance,
   isLoadingBalance,
   isLoadingUser,
   onStart,
   isRequesting,
 }: DepositReviewStepProps): React.JSX.Element {
+  // Determine whether this is a partial top-up scenario
+  const isPartialTopUp = currentBalance > 0 && depositAmount < total;
+
   return (
     <Card className="rounded-[12px] border-[#3d3d3d] bg-[#231f1f]">
       <CardContent className="p-6 space-y-5">
-        {/* Balance display */}
+        {/* Balance breakdown */}
         <div className="rounded-[8px] border border-[#3d3d3d] p-4 space-y-3">
+          {/* Total project cost — always shown */}
           <div className="flex items-baseline justify-between">
-            <span className="text-xs text-[rgba(255,255,255,0.5)]">Amount needed</span>
-            <span className="text-sm font-bold text-[#36d399]">{total.toFixed(0)} DUSD</span>
+            <span className="text-xs text-[rgba(255,255,255,0.5)]">Total project cost</span>
+            <span className="text-sm text-[#f5f5f5]">{total.toFixed(0)} DUSD</span>
           </div>
+
+          {/* Current balance — only show breakdown rows when partial top-up */}
+          {isPartialTopUp && (
+            <div className="flex items-baseline justify-between">
+              <span className="text-xs text-[rgba(255,255,255,0.5)]">Your current balance</span>
+              <span className="text-sm text-[#f5f5f5]">
+                {isLoadingBalance ? (
+                  <Spinner size="sm" />
+                ) : (
+                  `${currentBalance.toFixed(0)} DUSD`
+                )}
+              </span>
+            </div>
+          )}
+
+          {/* Divider when partial top-up */}
+          {isPartialTopUp && (
+            <div className="border-t border-[#3d3d3d]" />
+          )}
+
+          {/* Deposit amount — the actionable number, always prominent */}
           <div className="flex items-baseline justify-between">
-            <span className="text-xs text-[rgba(255,255,255,0.5)]">Current DUSD balance</span>
-            <span className="text-sm text-[#f5f5f5]">
-              {isLoadingBalance ? (
-                <Spinner size="sm" />
-              ) : (
-                dusdFree ?? '0'
-              )}
+            <span className="text-xs font-semibold text-[rgba(255,255,255,0.7)]">
+              {isPartialTopUp ? 'Amount to deposit' : 'Amount needed'}
+            </span>
+            <span className="text-base font-bold text-[#36d399]">
+              {depositAmount.toFixed(0)} DUSD
             </span>
           </div>
         </div>
@@ -424,9 +474,11 @@ function DepositReviewStep({
         <div className="flex items-start gap-2 rounded-[8px] bg-[#141414] p-4">
           <i className="ri-information-line mt-0.5 shrink-0 text-base text-[#36d399]" aria-hidden="true" />
           <p className="text-xs leading-relaxed text-[rgba(255,255,255,0.6)]">
-            Your fiat payment will be deposited as DUSD in your wallet on the
-            Kreivo blockchain. Once deposited, you can return to scope review
-            to approve and fund the project escrow.
+            {isPartialTopUp
+              ? 'You already have some DUSD in your wallet. Only the difference will be deposited via bank transfer.'
+              : 'Your fiat payment will be deposited as DUSD in your wallet on the Kreivo blockchain.'
+            }
+            {' '}Once deposited, you can return to scope review to approve and fund the project escrow.
           </p>
         </div>
 

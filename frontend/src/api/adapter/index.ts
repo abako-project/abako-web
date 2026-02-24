@@ -64,6 +64,7 @@ export {
   submitCoordinatorRatings,
   submitDeveloperRating,
 } from './projects';
+export type { ApproveScopeResponse } from './projects';
 
 // Milestone operations
 export {
