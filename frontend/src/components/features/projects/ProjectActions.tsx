@@ -17,8 +17,6 @@ import { useNavigate } from 'react-router-dom';
 import { Button, Input, Spinner } from '@components/ui';
 import { useApproveProposal, useRejectProposal, useAssignTeam } from '@hooks/useProjects';
 import { useVoteMembers, useSubmitCoordinatorRatings, useSubmitDeveloperRating } from '@hooks/useVotes';
-import { useReleaseEscrow, useClaimPayment } from '@hooks/useEscrow';
-import { usePaymentStatus, getStoredPaymentId } from '@hooks/usePaymentStatus';
 import {
   flowProjectState,
   ProjectState,
@@ -752,173 +750,35 @@ function ClientScopeResponse({ project }: { project: Project }) {
 }
 
 // ---------------------------------------------------------------------------
-// Client: Release Payment to Developer
+// Client: Payment auto-released info (smart contract handles escrow)
 // ---------------------------------------------------------------------------
 
-function ClientReleasePayment({ project }: { project: Project }) {
-  const paymentId = getStoredPaymentId(project.id);
-  const paymentStatus = usePaymentStatus(paymentId ?? undefined);
-  const { mutate: releaseEscrow, isPending, error } = useReleaseEscrow();
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [released, setReleased] = useState(false);
-
-  const handleRelease = useCallback(() => {
-    if (!paymentId) return;
-    releaseEscrow(
-      { paymentId, projectId: project.id },
-      { onSuccess: () => setReleased(true) }
-    );
-  }, [releaseEscrow, paymentId, project.id]);
-
-  if (!paymentId) {
-    return (
-      <div className="rounded-lg border border-[#3D3D3D] bg-[#231F1F] p-5">
-        <div className="flex items-center gap-2 text-sm text-[#9B9B9B]">
-          <i className="ri-information-line" />
-          <span>No escrow payment found for this project.</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (released) {
-    return (
-      <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-5">
-        <div className="flex items-center gap-2 text-sm text-emerald-400">
-          <i className="ri-checkbox-circle-line" />
-          <span>Payment released successfully. The developer can now claim it.</span>
-        </div>
-      </div>
-    );
-  }
-
+function ClientReleasePayment({ project: _project }: { project: Project }) {
   return (
-    <div className="rounded-lg border border-[#3D3D3D] bg-[#231F1F] p-5 space-y-4">
-      <h4 className="text-sm font-semibold text-[#F5F5F5]">
-        Release Payment
-      </h4>
-      <p className="text-xs text-[#9B9B9B]">
-        Release the escrowed funds to the development team.
-      </p>
-
-      {paymentStatus.data && (
-        <div className="rounded-[8px] border border-[#3D3D3D] bg-[#141414] p-3">
-          <div className="flex items-baseline justify-between text-xs">
-            <span className="text-[rgba(255,255,255,0.5)]">Escrow amount</span>
-            <span className="text-[#f5f5f5] font-medium">{paymentStatus.data.amount} DUSD</span>
-          </div>
-          <div className="flex items-baseline justify-between text-xs mt-1">
-            <span className="text-[rgba(255,255,255,0.5)]">Status</span>
-            <span className="text-[#36D399] font-medium">{paymentStatus.data.state}</span>
-          </div>
-        </div>
-      )}
-
-      {!showConfirm ? (
-        <Button
-          variant="primary"
-          onClick={() => setShowConfirm(true)}
-          className="w-full"
-        >
-          Release Payment to Developer
-        </Button>
-      ) : (
-        <div className="space-y-3 border-t border-[#3D3D3D] pt-4">
-          <p className="text-xs text-yellow-400">
-            <i className="ri-error-warning-line mr-1" />
-            This action is irreversible. The developer will be able to claim the funds.
-          </p>
-          <div className="flex gap-2">
-            <Button
-              variant="primary"
-              onClick={handleRelease}
-              isLoading={isPending}
-              disabled={isPending}
-              className="flex-1"
-            >
-              Confirm Release
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => setShowConfirm(false)}
-              className="flex-1"
-            >
-              Cancel
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {error && (
-        <p className="text-xs text-red-400">{error.message}</p>
-      )}
+    <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-5">
+      <div className="flex items-center gap-2 text-sm text-emerald-400">
+        <i className="ri-checkbox-circle-line" />
+        <span>
+          Payment was automatically released from escrow upon project completion.
+        </span>
+      </div>
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Developer: Claim Payment
+// Developer: Payment auto-released info (smart contract handles escrow)
 // ---------------------------------------------------------------------------
 
-function DeveloperClaimPayment({ project }: { project: Project }) {
-  const paymentId = getStoredPaymentId(project.id);
-  const { mutate: claimPayment, isPending, error } = useClaimPayment();
-  const [claimed, setClaimed] = useState(false);
-
-  const handleClaim = useCallback(() => {
-    if (!paymentId) return;
-    claimPayment(
-      { paymentId, projectId: project.id },
-      { onSuccess: () => setClaimed(true) }
-    );
-  }, [claimPayment, paymentId, project.id]);
-
-  if (!paymentId) {
-    return (
-      <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-5">
-        <div className="flex items-center gap-2 text-sm text-emerald-400">
-          <i className="ri-money-dollar-circle-line" />
-          <span>Payment has been released for this project.</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (claimed) {
-    return (
-      <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-5">
-        <div className="flex items-center gap-2 text-sm text-emerald-400">
-          <i className="ri-checkbox-circle-line" />
-          <span>Payment claimed successfully! Funds have been transferred to your account.</span>
-        </div>
-      </div>
-    );
-  }
-
+function DeveloperClaimPayment({ project: _project }: { project: Project }) {
   return (
-    <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-5 space-y-4">
-      <h4 className="text-sm font-semibold text-emerald-400">
-        <i className="ri-money-dollar-circle-line mr-2" />
-        Payment Available
-      </h4>
-      <p className="text-xs text-[#9B9B9B]">
-        The client has released the payment. Claim it to transfer the funds to your account.
-      </p>
-
-      <Button
-        variant="primary"
-        onClick={handleClaim}
-        isLoading={isPending}
-        disabled={isPending}
-        className="w-full gap-2"
-      >
-        <i className="ri-download-2-line" aria-hidden="true" />
-        Claim Payment
-      </Button>
-
-      {error && (
-        <p className="text-xs text-red-400">{error.message}</p>
-      )}
+    <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-5">
+      <div className="flex items-center gap-2 text-sm text-emerald-400">
+        <i className="ri-money-dollar-circle-line" />
+        <span>
+          Payment has been released for this project.
+        </span>
+      </div>
     </div>
   );
 }
