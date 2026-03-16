@@ -75,6 +75,22 @@ const STATE_COLORS: Record<ProjectStateValue, string> = {
     'bg-gray-500/15 text-gray-400 border-gray-500/30',
 };
 
+/** Map each ProjectState to a tooltip description in Spanish. */
+const STATE_TOOLTIPS: Record<ProjectStateValue, string> = {
+  [ProjectState.CreationError]: 'Ocurrió un error al crear la propuesta del cliente.',
+  [ProjectState.ProposalPending]: 'La propuesta fue enviada y está esperando que la DAO asigne un consultor.',
+  [ProjectState.WaitingForProposalApproval]: 'Un consultor fue asignado y debe aceptar o rechazar la propuesta.',
+  [ProjectState.ProposalRejected]: 'El consultor rechazó la propuesta del cliente.',
+  [ProjectState.ScopingInProgress]: 'El consultor está definiendo el alcance y los hitos del proyecto.',
+  [ProjectState.ScopeValidationNeeded]: 'El alcance fue enviado y espera la validación del cliente.',
+  [ProjectState.ScopeRejected]: 'El cliente rechazó el alcance propuesto.',
+  [ProjectState.WaitingForTeamAssigment]: 'El alcance fue aprobado, falta asignar al equipo de desarrollo.',
+  [ProjectState.ProjectInProgress]: 'El equipo está trabajando en los hitos del proyecto.',
+  [ProjectState.PaymentReleased]: 'El pago fue liberado al equipo.',
+  [ProjectState.Completed]: 'El proyecto fue completado, evaluado y pagado.',
+  [ProjectState.Invalid]: 'Estado no reconocido.',
+};
+
 export function ProjectStateBadge({
   project,
   scope,
@@ -91,6 +107,7 @@ export function ProjectStateBadge({
         colors,
         className
       )}
+      title={STATE_TOOLTIPS[state]}
     >
       {label}
     </span>
