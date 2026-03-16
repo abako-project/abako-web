@@ -440,8 +440,10 @@ Before getting started, make sure you have the following installed on your compu
 | **Node.js** | >= 18.0 | `node --version` | [nodejs.org](https://nodejs.org/) |
 | **npm** | >= 9.0 | `npm --version` | Comes with Node.js |
 | **Git** | >= 2.0 | `git --version` | [git-scm.com](https://git-scm.com/) |
+| **Docker** | >= 24.0 | `docker --version` | [docker.com](https://www.docker.com/) |
+| **Docker Compose** | >= 2.20 | `docker compose version` | Comes with Docker Desktop / Docker Engine plugin |
 
-> **Note**: Node.js is the runtime that executes JavaScript outside the browser. npm is its package manager (like a library store where you can install packages with a single command). You do not need to install anything else: there is no database, no backend server. You only need Node.js to run Vite (the frontend development tool).
+> **Note**: You can use either **Node.js + npm** for local development with hot reload, or **Docker + Docker Compose** for a containerized production-style build. You do not need a database or backend server in either case because the frontend talks directly to the external APIs.
 
 ---
 
@@ -451,13 +453,13 @@ Before getting started, make sure you have the following installed on your compu
 
 ```bash
 # Clone the project to your computer
-git clone <URL_DEL_REPOSITORIO>
+git clone <REPOSITORY_URL>
 
 # Enter the project folder
-cd frontend
+cd abako-web
 ```
 
-### 2. Install frontend dependencies
+### Option A. Run locally with npm (development mode)
 
 ```bash
 # Enter the frontend folder
@@ -465,12 +467,6 @@ cd frontend
 
 # Install all required libraries
 npm install
-```
-
-### 3. Start the application
-
-```bash
-# Inside frontend/
 npm run dev
 ```
 
@@ -481,32 +477,77 @@ It should display something like:
   > Local:   http://localhost:5173/
 ```
 
-### 4. Open the application
-
 Open your browser and go to **http://localhost:5173**. The React application will communicate directly with the external APIs at `dev.abako.xyz` thanks to CORS. You do not need any backend server.
 
-> **That is all.** A single command (`npm run dev`) and you have the application running. There is no need to configure environment variables, no need to start a backend, no need to install databases.
+> **That is all for development.** `npm run dev` gives you the Vite development server with hot module replacement (HMR).
+
+### Option B. Run with Docker Compose (build + serve)
+
+Use this option when you want a containerized production build that is easy to run locally or deploy on a server.
+
+```bash
+# From the repository root
+docker compose up --build -d
+```
+
+Open **http://localhost:8080**.
+
+The compose stack:
+
+- builds the frontend with Vite in a Node.js image
+- serves the generated static files from Nginx
+- supports SPA routes such as `/login` and `/projects/*`
+
+Useful commands:
+
+```bash
+# Follow the container logs
+docker compose logs -f
+
+# Stop and remove the container
+docker compose down
+```
 
 ### Quick summary
 
 ```bash
-git clone <URL_DEL_REPOSITORIO>
-cd website/website/frontend
+git clone <REPOSITORY_URL>
+cd abako-web
+
+# Development mode with HMR
+cd frontend
 npm install
 npm run dev
 # Open http://localhost:5173
+
+# Or run the production container from the repository root
+cd ..
+docker compose up --build -d
+# Open http://localhost:8080
 ```
 
 ### Advanced configuration (optional)
 
-If you need to point to a different server (for example, a staging or production environment), you can create a `.env` file in the `frontend/` folder:
+For local development with `npm run dev`, you can create a `.env` file in the `frontend/` folder:
 
 ```bash
 # frontend/.env (optional - defaults to dev.abako.xyz)
 VITE_API_BASE_URL=https://staging.abako.xyz
+VITE_KREIVO_RPC_URL=https://kreivo.abako.xyz
 ```
 
-The base URL configuration is in `frontend/src/api/config.ts`. If you do not create the `.env` file, the app will use `https://dev.abako.xyz` automatically.
+For Docker Compose, create a `.env` file in the repository root if you want to change the published port or build against a different API environment:
+
+```bash
+# .env at repository root (optional)
+APP_PORT=8080
+VITE_API_BASE_URL=https://staging.abako.xyz
+VITE_KREIVO_RPC_URL=https://kreivo.abako.xyz
+```
+
+> **Important**: Vite injects `VITE_*` variables at build time. If you change them for Docker Compose, rebuild the image with `docker compose up --build -d`.
+
+The shared API configuration lives in `frontend/src/api/config.ts`. If you do not create either `.env` file, the app defaults to `https://dev.abako.xyz`.
 
 ---
 
@@ -523,6 +564,16 @@ The base URL configuration is in `frontend/src/api/config.ts`. If you do not cre
 | `type-check` | `npm run type-check` | Checks TypeScript types without generating files (only checks for errors) |
 
 > **Note**: The most important command is `npm run dev`. It is the one you will use 99% of the time. The others are for verifying quality (`lint`, `type-check`) or preparing deployment (`build`, `preview`).
+
+### Docker Compose (`docker-compose.yml`)
+
+| Command | What it does |
+|--------|--------------|
+| `docker compose up --build -d` | Builds the production image and starts the Nginx container on `http://localhost:8080` (or `APP_PORT`) |
+| `docker compose logs -f` | Streams container logs |
+| `docker compose down` | Stops and removes the container |
+
+> **Note**: The Docker workflow is intended for running a production bundle. Use `npm run dev` when you want fast feedback and hot reload while editing the frontend.
 
 ---
 

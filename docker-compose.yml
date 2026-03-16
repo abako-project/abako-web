@@ -1,0 +1,12 @@
+services:
+  abako-web:
+    image: abako-web:${IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-https://dev.abako.xyz}
+        VITE_KREIVO_RPC_URL: ${VITE_KREIVO_RPC_URL:-}
+    ports:
+      - "${APP_PORT:-8080}:80"
+    restart: unless-stopped
