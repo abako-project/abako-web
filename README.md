@@ -454,10 +454,7 @@ Before getting started, make sure you have the following installed on your compu
 git clone <URL_DEL_REPOSITORIO>
 
 # Enter the project folder
-cd website/website
-
-# Switch to the active working branch
-git checkout feature/web-refactor
+cd frontend
 ```
 
 ### 2. Install frontend dependencies
