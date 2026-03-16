@@ -42,13 +42,15 @@ interface MilestoneWithProject {
 // Kanban column definitions
 // ---------------------------------------------------------------------------
 
-type KanbanColumnId = 'scheduled' | 'in_review' | 'completed';
+type KanbanColumnId = 'scheduled' | 'to_review' | 'completed';
 
 interface KanbanColumn {
   id: KanbanColumnId;
   label: string;
   states: MilestoneRawState[];
   headerStyle: 'green' | 'dark';
+  /** When true, the column container gets a green border accent. */
+  accentBorder?: boolean;
 }
 
 const KANBAN_COLUMNS: KanbanColumn[] = [
@@ -59,10 +61,11 @@ const KANBAN_COLUMNS: KanbanColumn[] = [
     headerStyle: 'green',
   },
   {
-    id: 'in_review',
-    label: 'In Client Review',
-    states: ['in_review'],
+    id: 'to_review',
+    label: 'To Review',
+    states: ['in_review', 'rejected'],
     headerStyle: 'dark',
+    accentBorder: true,
   },
   {
     id: 'completed',
@@ -126,8 +129,8 @@ const STATE_GROUP_ICONS: Record<ProjectStateValue, string> = {
 // ---------------------------------------------------------------------------
 
 const DASHBOARD_TABS = [
-  { id: 'tasks', label: 'Tasks' },
   { id: 'projects', label: 'Projects' },
+  { id: 'tasks', label: 'Tasks' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -141,7 +144,7 @@ export default function DashboardPage() {
 
   const { data, isLoading, isError, error } = useDashboard();
 
-  const [activeTab, setActiveTab] = useState<string>('tasks');
+  const [activeTab, setActiveTab] = useState<string>('projects');
   const [projectFilter, setProjectFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
@@ -259,7 +262,7 @@ export default function DashboardPage() {
           title="No projects yet"
           description={
             isClient
-              ? 'Create your first project proposal to get started with Work3Spaces.'
+              ? 'Create your first project proposal to get started with Abako.'
               : 'You have not been assigned to any projects yet. Projects will appear here once you are assigned as a consultant or developer.'
           }
           action={
@@ -321,9 +324,13 @@ export default function DashboardPage() {
             projectNames={projectNames}
             projectFilter={projectFilter}
             searchQuery={searchQuery}
+            isClient={isClient}
             onProjectFilterChange={setProjectFilter}
             onSearchChange={setSearchQuery}
             onNavigate={(projectId) => navigate(`/projects/${projectId}`)}
+            onReviewMilestone={(projectId, milestoneId) =>
+              navigate(`/projects/${projectId}/milestones/${milestoneId}/review`)
+            }
           />
         ) : (
           <ProjectsListView
@@ -374,9 +381,11 @@ interface TasksKanbanViewProps {
   projectNames: string[];
   projectFilter: string;
   searchQuery: string;
+  isClient: boolean;
   onProjectFilterChange: (value: string) => void;
   onSearchChange: (value: string) => void;
   onNavigate: (projectId: string) => void;
+  onReviewMilestone: (projectId: string, milestoneId: string) => void;
 }
 
 function TasksKanbanView({
@@ -385,9 +394,11 @@ function TasksKanbanView({
   projectNames,
   projectFilter,
   searchQuery,
+  isClient,
   onProjectFilterChange,
   onSearchChange,
   onNavigate,
+  onReviewMilestone,
 }: TasksKanbanViewProps) {
   return (
     <div>
@@ -437,7 +448,9 @@ function TasksKanbanView({
               key={column.id}
               column={column}
               milestones={columnMilestones}
+              isClient={isClient}
               onNavigate={onNavigate}
+              onReviewMilestone={onReviewMilestone}
             />
           );
         })}
@@ -487,14 +500,18 @@ function FilterChip({ label, active, onClick }: FilterChipProps) {
 interface KanbanColumnProps {
   column: KanbanColumn;
   milestones: MilestoneWithProject[];
+  isClient: boolean;
   onNavigate: (projectId: string) => void;
+  onReviewMilestone: (projectId: string, milestoneId: string) => void;
 }
 
-function KanbanColumn({ column, milestones, onNavigate }: KanbanColumnProps) {
+function KanbanColumn({ column, milestones, isClient, onNavigate, onReviewMilestone }: KanbanColumnProps) {
   const isGreen = column.headerStyle === 'green';
 
   return (
-    <div className="flex flex-col gap-3 bg-[var(--base-fill-1,#333)] rounded-[var(--radi-6,12px)] px-3 py-4">
+    <div className={`flex flex-col gap-3 bg-[var(--base-fill-1,#333)] rounded-[var(--radi-6,12px)] px-3 py-4 ${
+      column.accentBorder ? 'border border-[var(--state-brand-active,#36d399)]' : ''
+    }`}>
       {/* Column header badge */}
       <div
         className={`flex items-center gap-2 px-3 h-10 w-full rounded-[var(--radi-6,12px)] shadow-[0.5px_0.5px_3px_0px_rgba(255,255,255,0.08)] shrink-0 ${
@@ -534,7 +551,9 @@ function KanbanColumn({ column, milestones, onNavigate }: KanbanColumnProps) {
             key={milestone.id ?? `${project.id}-${milestone.title}`}
             milestone={milestone}
             project={project}
+            isClient={isClient}
             onClick={() => onNavigate(project.id)}
+            onReviewMilestone={onReviewMilestone}
           />
         ))
       )}
@@ -549,10 +568,14 @@ function KanbanColumn({ column, milestones, onNavigate }: KanbanColumnProps) {
 interface MilestoneCardProps {
   milestone: Milestone;
   project: Project;
+  isClient: boolean;
   onClick: () => void;
+  onReviewMilestone: (projectId: string, milestoneId: string) => void;
 }
 
-function MilestoneCard({ milestone, project, onClick }: MilestoneCardProps) {
+function MilestoneCard({ milestone, project, isClient, onClick, onReviewMilestone }: MilestoneCardProps) {
+  const user = useAuthStore((state) => state.user);
+  const isDeveloper = !!user?.developerId;
   const developerName = milestone.developer?.name ?? project.consultant?.name ?? 'Unassigned';
   const githubUsername =
     milestone.developer?.githubUsername ?? project.consultant?.githubUsername;
@@ -561,7 +584,9 @@ function MilestoneCard({ milestone, project, onClick }: MilestoneCardProps) {
     : undefined;
 
   const deliveryDate = formatDeliveryDate(milestone.deliveryDate);
-  const showSubmitButton = milestone.state === 'task_in_progress';
+  const showSubmitButton = isDeveloper && milestone.state === 'task_in_progress';
+  const showReviewButton = isClient && milestone.state === 'in_review' && !!milestone.id;
+  const isRejected = milestone.state === 'rejected';
 
   return (
     <div
@@ -589,11 +614,16 @@ function MilestoneCard({ milestone, project, onClick }: MilestoneCardProps) {
         )}
       </div>
 
-      {/* Project name chip */}
-      <div className="mt-3">
+      {/* Project name chip + rejected badge */}
+      <div className="mt-3 flex items-center gap-2 flex-wrap">
         <span className="inline-flex items-center h-6 px-[10px] rounded-[var(--radi-6,12px)] text-xs font-medium bg-[rgba(54,211,153,0.12)] text-[var(--state-brand-active,#36d399)] border border-[rgba(54,211,153,0.2)]">
           {project.title}
         </span>
+        {isRejected && (
+          <span className="inline-flex items-center h-6 px-[10px] rounded-[var(--radi-6,12px)] text-xs font-medium bg-[rgba(239,68,68,0.12)] text-red-400 border border-[rgba(239,68,68,0.2)]">
+            Rejected
+          </span>
+        )}
       </div>
 
       {/* Actions row */}
@@ -627,6 +657,17 @@ function MilestoneCard({ milestone, project, onClick }: MilestoneCardProps) {
               }}
             >
               Submit for Review
+            </button>
+          )}
+          {showReviewButton && (
+            <button
+              className="flex-shrink-0 h-9 px-3 rounded-[var(--radi-6,12px)] bg-[var(--state-brand-active,#36d399)] border border-[var(--colors-alpha-dark-200,rgba(255,255,255,0.12))] text-sm font-semibold text-[var(--text-light-primary,#141414)] hover:brightness-110 transition-all"
+              onClick={(e) => {
+                e.stopPropagation();
+                onReviewMilestone(project.id, milestone.id!);
+              }}
+            >
+              Review Now
             </button>
           )}
         </div>

@@ -6,11 +6,11 @@ import { Outlet } from 'react-router-dom';
  * Figma design (76:69099): Split screen layout with brand content on left, auth form on right.
  * Left panel features:
  *   - Dark background with decorative SVG flow-field pattern
- *   - Centered W3S logo (~350px, rotated ~10deg) with green glow
+ *   - Centered Abako logo (~350px, rotated ~10deg) with green glow
  *   - Glassmorphism diamond shape behind logo
  *   - Circle shape to the right of logo
- *   - Top-left: small logo + "work3spaces" text
- *   - Bottom-left: "Welcome to W3S" title (36px bold)
+ *   - Top-left: small logo + "Abako" text
+ *   - Bottom-left: "Welcome to Abako" title (36px bold)
  */
 export function AuthLayout() {
   return (
@@ -24,7 +24,7 @@ export function AuthLayout() {
         <div
           className="absolute inset-0"
           style={{
-            backgroundImage: "url('/images/w3s-bg-pattern.svg')",
+            backgroundImage: "url('/images/abako-bg-pattern.svg')",
             backgroundPosition: 'center',
             backgroundSize: 'cover',
           }}
@@ -32,12 +32,12 @@ export function AuthLayout() {
 
         {/* Top-left: Logo + brand name */}
         <div className="relative z-10 p-8 flex items-center gap-2">
-          <W3SLogoSmall />
+          <AbakoLogoSmall />
           <span
             className="text-base font-semibold"
             style={{ color: 'var(--text-dark-primary, #f5f5f5)' }}
           >
-            work3spaces
+            Abako
           </span>
         </div>
 
@@ -62,7 +62,7 @@ export function AuthLayout() {
               }}
             />
 
-            {/* Main W3S logo (rotated ~10deg) */}
+            {/* Main Abako logo (rotated ~10deg) */}
             <div
               className="absolute flex items-center justify-center"
               style={{
@@ -74,7 +74,7 @@ export function AuthLayout() {
                 filter: 'drop-shadow(0 0 40px rgba(54, 211, 153, 0.3))',
               }}
             >
-              <W3SLogoLarge />
+              <AbakoLogoLarge />
             </div>
 
             {/* Circle shape (glassmorphism, to the right) */}
@@ -88,7 +88,7 @@ export function AuthLayout() {
               }}
             >
               <img
-                src="/images/w3s-circle-shape.svg"
+                src="/images/abako-circle-shape.svg"
                 alt=""
                 className="w-full h-full"
               />
@@ -102,7 +102,7 @@ export function AuthLayout() {
             className="text-[var(--font-size-4xl,36px)] font-bold leading-[var(--line-height-4xl,52px)]"
             style={{ color: 'var(--text-dark-primary, #f5f5f5)' }}
           >
-            Welcome to W3S
+            Welcome to Abako
           </h1>
         </div>
       </div>
@@ -121,10 +121,10 @@ export function AuthLayout() {
 }
 
 /**
- * Small W3S logo icon for the top-left corner.
- * Renders the green W3S mark at 24x16px.
+ * Small Abako logo icon for the top-left corner.
+ * Renders the green Abako mark at 24x16px.
  */
-function W3SLogoSmall() {
+function AbakoLogoSmall() {
   return (
     <svg
       width="28"
@@ -156,10 +156,10 @@ function W3SLogoSmall() {
 }
 
 /**
- * Large W3S logo for the center of the auth layout.
- * Renders the full green W3S mark at ~350px.
+ * Large Abako logo for the center of the auth layout.
+ * Renders the full green Abako mark at ~350px.
  */
-function W3SLogoLarge() {
+function AbakoLogoLarge() {
   return (
     <svg
       width="100%"

@@ -4,8 +4,8 @@
  * Sends JSON-RPC 2.0 requests to the chain node over HTTP POST.
  * No WebSocket, no polkadot-api, no RxJS — just fetch.
  *
- * Default endpoint: dev.abako.xyz/kreivo (local test network with CORS enabled).
- * Override via VITE_KREIVO_RPC_URL env variable to point to production.
+ * Default endpoint: VITE_API_BASE_URL/kreivo (falls back to dev.abako.xyz/kreivo).
+ * Override independently via VITE_KREIVO_RPC_URL if needed.
  */
 
 import type { JsonRpcRequest, JsonRpcResponse } from './types';
@@ -14,7 +14,8 @@ import type { JsonRpcRequest, JsonRpcResponse } from './types';
 // Configuration
 // ---------------------------------------------------------------------------
 
-const KREIVO_RPC_URL = import.meta.env.VITE_KREIVO_RPC_URL || 'https://dev.abako.xyz/kreivo';
+const KREIVO_RPC_URL = import.meta.env.VITE_KREIVO_RPC_URL
+  || `${import.meta.env.VITE_API_BASE_URL || 'https://dev.abako.xyz'}/kreivo`;
 const REQUEST_TIMEOUT_MS = 10_000;
 
 let requestId = 0;

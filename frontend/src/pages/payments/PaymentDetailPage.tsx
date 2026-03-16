@@ -14,7 +14,12 @@ import { usePayment } from '@hooks/usePayments';
 import { computeProjectPaymentSummary, isAdvancePaid, isFullyPaid, isZeroPaid } from '@lib/paymentUtils';
 import { Spinner, Card, CardContent } from '@components/ui';
 import { MilestoneStatusBadge } from '@components/features/projects/MilestoneStatusBadge';
+import { budgetPlanckToHuman } from '@lib/dusdUnits';
 import type { Milestone } from '@/types/index';
+
+function formatCurrency(amount: number): string {
+  return amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
 
 export default function PaymentDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -183,12 +188,7 @@ function MilestoneSection({
       </div>
       <div className="space-y-3">
         {milestones.map((milestone, index) => {
-          const budget =
-            milestone.budget !== null && milestone.budget !== undefined
-              ? typeof milestone.budget === 'string'
-                ? parseFloat(milestone.budget)
-                : milestone.budget
-              : 0;
+          const budget = budgetPlanckToHuman(milestone.budget);
           const advanceAmount =
             Math.round((budget * advancePaymentPercentage) / 100 * 100) / 100;
 
@@ -215,11 +215,11 @@ function MilestoneSection({
                     <MilestoneStatusBadge milestone={milestone} />
                     <div className="text-right">
                       <p className="text-sm font-semibold text-[#F5F5F5]">
-                        ${budget}
+                        ${formatCurrency(budget)}
                       </p>
                       {showAdvance && advanceAmount > 0 && (
                         <p className="text-xs text-orange-400">
-                          {advancePaymentPercentage}% = ${advanceAmount}
+                          {advancePaymentPercentage}% = ${formatCurrency(advanceAmount)}
                         </p>
                       )}
                     </div>

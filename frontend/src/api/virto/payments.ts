@@ -1,8 +1,8 @@
 /**
  * Virto API - Payments
  *
- * Functions for creating, releasing, and managing blockchain payments.
- * Ported from backend/models/adapter.js (virtoAPI object, lines 982-1029).
+ * Functions for creating, releasing, and managing blockchain payments
+ * via the Kreivo Payments pallet.
  */
 
 import { virtoConfig } from '../config';
@@ -14,18 +14,18 @@ import type {
   ReleasePaymentResponse,
   AcceptAndPayData,
   AcceptAndPayResponse,
-  GetPaymentResponse,
+  GetPaymentRawResponse,
+  PaymentInfo,
   HealthCheckResponse,
 } from './types';
 
 /**
- * Create a new payment on the blockchain.
+ * Create a new payment on the blockchain (Payments.pay).
  *
- * Initiates a payment transaction that locks funds until release conditions are met.
+ * Locks funds in escrow until release conditions are met.
  *
- * @param paymentData - Payment details (amount, recipient, project, milestone, etc.)
- * @returns Payment creation result with paymentId
- * @throws {VirtoApiError} If the request fails
+ * @param paymentData - Payment details (amount, recipient, project, milestone)
+ * @returns Payment creation result with paymentId and txHash
  */
 export async function createPayment(
   paymentData: CreatePaymentData
@@ -42,14 +42,9 @@ export async function createPayment(
 }
 
 /**
- * Release a payment to the recipient.
+ * Release a payment to the recipient (Payments.release).
  *
- * Releases locked funds from escrow to the recipient address.
- * Typically called when milestone conditions are met.
- *
- * @param paymentData - Payment release details (paymentId, etc.)
- * @returns Payment release result with transaction details
- * @throws {VirtoApiError} If the request fails
+ * Called by the client after approving deliverables.
  */
 export async function releasePayment(
   paymentData: ReleasePaymentData
@@ -66,14 +61,9 @@ export async function releasePayment(
 }
 
 /**
- * Accept and pay in a single transaction.
+ * Accept and pay in a single transaction (Payments.accept_and_pay).
  *
- * Combines acceptance and payment release into one atomic operation.
- * Used for streamlined payment workflows.
- *
- * @param paymentData - Payment acceptance details (paymentId, etc.)
- * @returns Payment result with transaction details
- * @throws {VirtoApiError} If the request fails
+ * Called by the developer to claim released funds.
  */
 export async function acceptAndPay(paymentData: AcceptAndPayData): Promise<AcceptAndPayResponse> {
   try {
@@ -88,23 +78,34 @@ export async function acceptAndPay(paymentData: AcceptAndPayData): Promise<Accep
 }
 
 /**
- * Get payment details by ID.
+ * Get payment details by ID from the Payments pallet.
  *
- * Retrieves the current state and details of a payment transaction.
+ * Maps the backend's nested `{ payment: { ... } | null }` shape
+ * into a flat `PaymentInfo` or null.
  *
  * @param paymentId - Unique payment identifier
- * @returns Payment details object
- * @throws {VirtoApiError} If the request fails
+ * @returns Flat payment info, or null if not found
  */
-export async function getPayment(paymentId: string): Promise<GetPaymentResponse> {
+export async function getPayment(paymentId: string): Promise<PaymentInfo | null> {
   try {
-    const response = await virtoClient.get<GetPaymentResponse>(
+    const response = await virtoClient.get<GetPaymentRawResponse>(
       virtoConfig.endpoints.payments.get,
       {
         params: { paymentId },
       }
     );
-    return response.data;
+
+    const raw = response.data.payment;
+    if (!raw) return null;
+
+    return {
+      paymentId: raw.paymentId,
+      from: raw.from,
+      to: raw.to,
+      amount: raw.amount,
+      asset: raw.asset,
+      state: raw.state,
+    };
   } catch (error) {
     handleVirtoError(error, `getPayment(${paymentId})`);
   }
@@ -112,9 +113,6 @@ export async function getPayment(paymentId: string): Promise<GetPaymentResponse>
 
 /**
  * Health check for the Payments API.
- *
- * @returns Health status object
- * @throws {VirtoApiError} If the request fails
  */
 export async function paymentsHealthCheck(): Promise<HealthCheckResponse> {
   try {

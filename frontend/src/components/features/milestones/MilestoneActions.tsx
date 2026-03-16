@@ -20,6 +20,7 @@ import {
   flowMilestoneState,
   MilestoneState,
 } from '@lib/flowStates';
+import { budgetPlanckToHuman } from '@lib/dusdUnits';
 import type { Milestone, User } from '@/types/index';
 
 interface MilestoneActionsProps {
@@ -51,8 +52,8 @@ export function MilestoneActions({
 
   return (
     <div className="mt-3 pl-6">
-      {/* Consultant/Developer: Submit work for review */}
-      {isConsultant && state === MilestoneState.MilestoneInProgress && (
+      {/* Consultant/Developer: Submit work for review (never shown to clients) */}
+      {!isClient && isConsultant && state === MilestoneState.MilestoneInProgress && (
         <SubmitWorkAction projectId={projectId} milestoneId={milestoneId} milestone={milestone} />
       )}
 
@@ -69,8 +70,8 @@ export function MilestoneActions({
         </div>
       )}
 
-      {/* Consultant: Submission rejected - show resubmit form */}
-      {isConsultant && state === MilestoneState.SubmissionRejectedByClient && (
+      {/* Consultant: Submission rejected - show resubmit form (never shown to clients) */}
+      {!isClient && isConsultant && state === MilestoneState.SubmissionRejectedByClient && (
         <div className="space-y-3">
           <div className="flex items-center gap-2 text-xs text-red-400">
             <i className="ri-error-warning-line" />
@@ -130,7 +131,7 @@ function SubmitWorkAction({
 
   const budgetDisplay =
     milestone.budget !== undefined && milestone.budget !== null
-      ? `${milestone.budget} USD`
+      ? `${budgetPlanckToHuman(milestone.budget).toLocaleString('en-US')} DUSD`
       : 'Budget Pending';
 
   return (

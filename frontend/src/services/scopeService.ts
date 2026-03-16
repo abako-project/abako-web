@@ -13,6 +13,7 @@ import {
   approveScope,
   rejectScope as apiRejectScope,
 } from '@/api/adapter';
+import type { ApproveScopeResponse } from '@/api/adapter';
 
 // ---------------------------------------------------------------------------
 // Service functions
@@ -65,8 +66,8 @@ export async function acceptScope(
   approvedTaskIds: number[],
   _clientResponse: string,
   token: string
-): Promise<void> {
-  await approveScope(projectId, approvedTaskIds, token);
+): Promise<ApproveScopeResponse> {
+  return approveScope(projectId, approvedTaskIds, token);
 }
 
 /**

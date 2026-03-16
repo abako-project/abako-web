@@ -1,0 +1,44 @@
+{
+  "_instructions": {
+    "purpose": "Pre-fill data for milestone forms during developer/consultant user testing.",
+    "how_it_works": "Each entry in 'milestones' pre-fills one milestone form. If the user adds more milestones than there are entries here, the extra ones start blank. If this array is empty, all milestones start blank (original behavior).",
+    "fields": {
+      "title": "Required. Short name for the milestone.",
+      "description": "What will be delivered in this milestone.",
+      "budget": "Amount in DUSD (e.g. 1500). Leave as empty string to leave blank.",
+      "deliveryTime": "Index into the delivery-time list: 0=Within 1 month, 1=1-3 months, 2=3-6 months, 3=Specific date. Leave as empty string to leave blank.",
+      "deliveryDate": "ISO 8601 datetime string (e.g. '2026-06-30T12:00'). Only used when deliveryTime is '3' (Specific date). Leave as empty string to leave blank.",
+      "role": "One of: 'Front End', 'BackEnd', 'Full Stack', 'UX Designer'. Leave as empty string for none.",
+      "proficiency": "One of: 'junior', 'mid-level', 'senior'. Leave as empty string for none.",
+      "skills": "Array of skills. Valid values: 'Rust', 'Javascript', 'HTML5', 'Node', 'UX'. Use [] for none.",
+      "availability": "One of: 'fulltime', 'parttime', 'hourly'. Leave as empty string for none.",
+      "neededHours": "Number of hours per week. Only used when availability is 'hourly'. Leave as empty string to leave blank."
+    }
+  },
+  "milestones": [
+    {
+      "title": "Smart Contract Architecture & Setup",
+      "description": "Design and implement the core smart contract architecture on Polkadot/Virto Network. Includes environment setup, initial contract scaffolding, and basic test suite.",
+      "budget": "2000",
+      "deliveryTime": "1",
+      "deliveryDate": "",
+      "role": "BackEnd",
+      "proficiency": "senior",
+      "skills": ["Rust"],
+      "availability": "fulltime",
+      "neededHours": ""
+    },
+    {
+      "title": "Frontend Integration & UI Components",
+      "description": "Build the React frontend components to interact with the deployed contracts. Includes wallet connection, transaction signing, and responsive UI.",
+      "budget": "1500",
+      "deliveryTime": "1",
+      "deliveryDate": "",
+      "role": "Front End",
+      "proficiency": "mid-level",
+      "skills": ["Javascript", "HTML5"],
+      "availability": "parttime",
+      "neededHours": ""
+    }
+  ]
+}

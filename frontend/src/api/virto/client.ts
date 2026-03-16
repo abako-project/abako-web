@@ -2,7 +2,7 @@
  * Virto API HTTP Client
  *
  * Axios instance configured for the Virto API (WebAuthn, Payments, Memberships).
- * All endpoints are exposed at dev.abako.xyz with full CORS support.
+ * All endpoints are exposed at VITE_API_BASE_URL (defaults to dev.abako.xyz).
  */
 
 import axios, { AxiosError } from 'axios';

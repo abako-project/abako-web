@@ -1,72 +1,47 @@
 /**
- * PaymentFundPage - Fund project escrow
+ * PaymentFundPage - On-ramp page for depositing DUSD via Bramp bank transfer
  *
- * Two-column layout that lets a client lock funds into escrow to start
- * a project. Shows a simplified milestone breakdown on the left and a
- * payment method form on the right.
+ * This page is a pure on-ramp: the user deposits fiat and receives DUSD in
+ * their wallet. It does NOT create escrow or approve scope — those happen
+ * on ScopeReviewPage when the user has sufficient balance.
+ *
+ * Flow:
+ *   Step 1 "review":       Show project milestones + DUSD balance + CTA
+ *   Step 2 "bank-details": Call useBrampUser + useRequestDeposit → show IBAN/reference
+ *   Step 3 "confirming":   Call useConfirmDeposit → deposit DUSD to wallet
+ *   Step 4 "done":         Success message + "Back to Scope Review" link
+ *   Step "error":          Error message + retry
  *
  * Route: /payments/:id/fund
- *
- * On first visit, the EscrowPaymentModal is shown to explain the escrow
- * system. The modal dismissal is persisted in localStorage.
- *
- * On submit: navigates back to the project detail page.
- * On/off-ramp payment integration comes in a later phase; for now
- * this is a passthrough step. The consultant will then see the
- * "Assign Team" button on the project page (assign_team requires
- * the coordinator's signature, not the client's).
  */
 
 import * as React from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { usePayment } from '@hooks/usePayments';
+import { useAuthStore } from '@/stores/authStore';
+import { getUserAddress } from '@/api/virto';
+
+import { useBrampUser, useRequestDeposit, useConfirmDeposit } from '@hooks/useBramp';
+import { useQueryClient } from '@tanstack/react-query';
+import { walletKeys } from '@hooks/useWalletBalance';
+import { budgetPlanckToHuman, dusdToPlanck } from '@lib/dusdUnits';
 import {
   Button,
   Card,
   CardContent,
-  Input,
   Spinner,
-  TabsLine,
 } from '@components/ui';
-import {
-  EscrowPaymentModal,
-  isEscrowModalDismissed,
-} from '@components/features/payments/EscrowPaymentModal';
 import { cn } from '@lib/cn';
 import type { Milestone } from '@/types/index';
-import type { Tab } from '@components/ui/TabsLine';
 
 // ---------------------------------------------------------------------------
-// Constants
+// Types
 // ---------------------------------------------------------------------------
 
-const PAYMENT_TABS: Tab[] = [
-  { id: 'card', label: 'Card' },
-  { id: 'bank', label: 'Bank Transfer' },
-];
+type FundingStep = 'review' | 'bank-details' | 'confirming' | 'done' | 'error';
 
 // ---------------------------------------------------------------------------
-// Form state type
-// ---------------------------------------------------------------------------
-
-interface CardFormState {
-  cardHolder: string;
-  cardNumber: string;
-  expiration: string;
-  cvc: string;
-  country: string;
-}
-
-const INITIAL_CARD_FORM: CardFormState = {
-  cardHolder: '',
-  cardNumber: '',
-  expiration: '',
-  cvc: '',
-  country: '',
-};
-
-// ---------------------------------------------------------------------------
-// Helper
+// Helpers
 // ---------------------------------------------------------------------------
 
 function formatCurrency(amount: number): string {
@@ -76,75 +51,54 @@ function formatCurrency(amount: number): string {
   })}`;
 }
 
-function getMilestoneBudget(milestone: Milestone): number {
-  if (milestone.budget === null || milestone.budget === undefined) return 0;
-  const val =
-    typeof milestone.budget === 'string'
-      ? parseFloat(milestone.budget)
-      : milestone.budget;
-  return isNaN(val) ? 0 : val;
-}
-
 // ---------------------------------------------------------------------------
 // PaymentFundPage
 // ---------------------------------------------------------------------------
 
-export default function PaymentFundPage() {
+// ---------------------------------------------------------------------------
+// Navigation state passed from ScopeReviewPage
+// ---------------------------------------------------------------------------
+
+interface FundNavigationState {
+  totalCost?: number;
+}
+
+export default function PaymentFundPage(): React.JSX.Element {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const queryClient = useQueryClient();
+
+  // State passed from ScopeReviewPage — contains the pre-computed shortfall
+  const fundState = (location.state ?? null) as FundNavigationState | null;
   const { data, isLoading, error, refetch } = usePayment(id);
 
-  // Payment method tab state
-  const [activeTab, setActiveTab] = React.useState<string>('card');
+  const user = useAuthStore((s) => s.user);
+  const [userAddress, setUserAddress] = React.useState<string | null>(null);
+  // Step machine
+  const [step, setStep] = React.useState<FundingStep>('review');
+  const [stepError, setStepError] = React.useState<string | null>(null);
+  const [depositId, setDepositId] = React.useState<number | null>(null);
+  const [bankInstructions, setBankInstructions] = React.useState<{
+    amount: string;
+    bankAccount: string;
+    reference: string;
+  } | null>(null);
 
-  // Card form state
-  const [cardForm, setCardForm] = React.useState<CardFormState>(INITIAL_CARD_FORM);
+  // Hooks
+  const brampUser = useBrampUser(user?.email);
+  const requestDepositMutation = useRequestDeposit();
+  const confirmDepositMutation = useConfirmDeposit();
 
-  // Escrow modal visibility
-  const [showEscrowModal, setShowEscrowModal] = React.useState<boolean>(
-    () => !isEscrowModalDismissed()
-  );
-
-  // --------------------------------------------------------------------------
-  // Handlers
-  // --------------------------------------------------------------------------
-
-  function handleCardFieldChange(field: keyof CardFormState) {
-    return (event: React.ChangeEvent<HTMLInputElement>) => {
-      let value = event.target.value;
-
-      // Auto-format card number with spaces every 4 digits
-      if (field === 'cardNumber') {
-        const digits = value.replace(/\D/g, '').slice(0, 16);
-        value = digits.replace(/(\d{4})(?=\d)/g, '$1 ');
-      }
-
-      // Auto-format expiration as MM/YY
-      if (field === 'expiration') {
-        const digits = value.replace(/\D/g, '').slice(0, 4);
-        value = digits.length > 2 ? `${digits.slice(0, 2)}/${digits.slice(2)}` : digits;
-      }
-
-      // CVC: digits only
-      if (field === 'cvc') {
-        value = value.replace(/\D/g, '').slice(0, 4);
-      }
-
-      setCardForm((prev) => ({ ...prev, [field]: value }));
-    };
-  }
-
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    if (!id || !data) return;
-
-    // On/off-ramp payment integration comes in a later phase.
-    // For now, this is a passthrough step: the client confirms the escrow
-    // and is redirected to the project page. The consultant will then see
-    // the "Assign Team" button (assign_team requires coordinator signature).
-    navigate(`/projects/${id}`);
-  }
+  // Resolve user address on mount
+  React.useEffect(() => {
+    if (!user?.email) return;
+    let cancelled = false;
+    getUserAddress(user.email)
+      .then((res) => { if (!cancelled) setUserAddress(res.address); })
+      .catch(() => { /* address resolution failure handled at action time */ });
+    return () => { cancelled = true; };
+  }, [user?.email]);
 
   // --------------------------------------------------------------------------
   // Loading / error states
@@ -193,149 +147,205 @@ export default function PaymentFundPage() {
 
   const { project } = data;
   const total = project.milestones.reduce(
-    (acc, m) => acc + getMilestoneBudget(m),
+    (acc, m) => acc + budgetPlanckToHuman(m.budget),
     0
   );
+
+  // Always use the full project cost as the deposit amount.
+  // The on-ramp should request the total needed, not a partial difference,
+  // to avoid issues when the wallet balance changes between screens.
+  const depositAmount = fundState?.totalCost ?? total;
+
+  // --------------------------------------------------------------------------
+  // Step handlers
+  // --------------------------------------------------------------------------
+
+  async function handleStartBankTransfer(): Promise<void> {
+    if (!brampUser.data || !userAddress) {
+      setStepError('Account not ready. Please wait for loading to complete.');
+      setStep('error');
+      return;
+    }
+
+    try {
+      // Convert human-readable DUSD to raw planck units for the on-ramp API.
+      const rawAmount = dusdToPlanck(depositAmount);
+
+      const result = await requestDepositMutation.mutateAsync({
+        userId: brampUser.data.id,
+        amount: String(rawAmount),
+        toAddress: userAddress,
+      });
+      setDepositId(result.depositId);
+      setBankInstructions(result.instructions);
+      setStep('bank-details');
+    } catch (err) {
+      setStepError(err instanceof Error ? err.message : 'Failed to request deposit');
+      setStep('error');
+    }
+  }
+
+  async function handleConfirmTransfer(): Promise<void> {
+    if (depositId === null || !userAddress) return;
+
+    setStep('confirming');
+    try {
+      await confirmDepositMutation.mutateAsync({
+        depositId,
+        toAddress: userAddress,
+      });
+
+      // Invalidate wallet balance queries so the UI reflects the new DUSD
+      void queryClient.invalidateQueries({ queryKey: walletKeys.all });
+
+      setStep('done');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Deposit confirmation failed';
+      const isTimeout = message.includes('504') || message.includes('timeout') || message.includes('Timeout');
+
+      if (isTimeout) {
+        void queryClient.invalidateQueries({ queryKey: walletKeys.all });
+        setStepError(
+          'The request timed out, but the deposit may have been processed. ' +
+          'Check your balance — it should update shortly.'
+        );
+      } else {
+        setStepError(message);
+      }
+
+      setStep('error');
+    }
+  }
+
+  function handleRetry(): void {
+    setStepError(null);
+    setStep('review');
+  }
 
   // --------------------------------------------------------------------------
   // Render
   // --------------------------------------------------------------------------
 
   return (
-    <>
-      {/* Escrow explainer modal — shown once per user */}
-      <EscrowPaymentModal
-        isOpen={showEscrowModal}
-        onClose={() => setShowEscrowModal(false)}
-      />
+    <div
+      className="min-h-screen px-8 py-10 lg:px-14"
+      style={{ background: 'var(--base-surface-1, #141414)' }}
+    >
+      {/* Breadcrumb */}
+      <nav className="mb-6 text-sm text-[rgba(255,255,255,0.5)]">
+        <Link
+          to="/payments"
+          className="transition-colors hover:text-[#f5f5f5]"
+        >
+          Payments
+        </Link>
+        <span className="mx-2">/</span>
+        <Link
+          to={`/projects/${project.id}/review-scope`}
+          className="transition-colors hover:text-[#f5f5f5]"
+        >
+          {project.title}
+        </Link>
+        <span className="mx-2">/</span>
+        <span className="text-[#f5f5f5]">Deposit DUSD</span>
+      </nav>
 
-      <div
-        className="min-h-screen px-8 py-10 lg:px-14"
-        style={{ background: 'var(--base-surface-1, #141414)' }}
-      >
-        {/* Breadcrumb */}
-        <nav className="mb-6 text-sm text-[rgba(255,255,255,0.5)]">
-          <Link
-            to="/payments"
-            className="transition-colors hover:text-[#f5f5f5]"
-          >
-            Payments
-          </Link>
-          <span className="mx-2">/</span>
-          <Link
-            to={`/payments/${project.id}`}
-            className="transition-colors hover:text-[#f5f5f5]"
-          >
-            {project.title}
-          </Link>
-          <span className="mx-2">/</span>
-          <span className="text-[#f5f5f5]">Fund Escrow</span>
-        </nav>
-
-        {/* Two-column layout */}
-        <form onSubmit={handleSubmit}>
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-            {/* ----------------------------------------------------------------
-                LEFT COLUMN — Project Milestones
-            ---------------------------------------------------------------- */}
-            <div>
-              <Card className="rounded-[12px] border-[#3d3d3d] bg-[#231f1f]">
-                <CardContent className="p-6">
-                  <h2
-                    className="text-lg font-semibold text-[#f5f5f5]"
-                    style={{ fontFamily: 'Inter' }}
-                  >
-                    Project Milestones
-                  </h2>
-                  <p className="mt-1 text-sm text-[rgba(255,255,255,0.6)]">
-                    Review milestones and lock funds to start the project
-                  </p>
-
-                  {/* Milestone list */}
-                  <div className="mt-5">
-                    {project.milestones.length === 0 ? (
-                      <p className="py-4 text-center text-sm text-[rgba(255,255,255,0.5)]">
-                        No milestones defined yet.
-                      </p>
-                    ) : (
-                      project.milestones.map((milestone, index) => (
-                        <SimpleMilestoneRow
-                          key={milestone.id ?? `ms-${index}`}
-                          milestone={milestone}
-                          index={index}
-                          isLast={index === project.milestones.length - 1}
-                        />
-                      ))
-                    )}
-                  </div>
-
-                  {/* Total box */}
-                  {project.milestones.length > 0 && (
-                    <div className="mt-4 rounded-[8px] border border-[#3d3d3d] px-4 py-3">
-                      <div className="flex items-baseline justify-between">
-                        <span className="text-sm font-semibold text-[#f5f5f5]">
-                          Total
-                        </span>
-                        <span className="text-base font-bold text-[#36d399]">
-                          {formatCurrency(total)}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* ----------------------------------------------------------------
-                RIGHT COLUMN — Payment Details
-            ---------------------------------------------------------------- */}
-            <div>
-              {/* Floating heading — outside of card */}
+      {/* Two-column layout */}
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+        {/* LEFT COLUMN — Project Milestones */}
+        <div>
+          <Card className="rounded-[12px] border-[#3d3d3d] bg-[#231f1f]">
+            <CardContent className="p-6">
               <h2
-                className="mb-4 text-lg font-semibold text-[#f5f5f5]"
+                className="text-lg font-semibold text-[#f5f5f5]"
                 style={{ fontFamily: 'Inter' }}
               >
-                Payment Details
+                Project Milestones
               </h2>
+              <p className="mt-1 text-sm text-[rgba(255,255,255,0.6)]">
+                You need DUSD to fund this project. Deposit via bank transfer below.
+              </p>
 
-              <Card className="rounded-[12px] border-[#3d3d3d] bg-[#231f1f]">
-                <CardContent className="p-6">
-                  {/* Tabs with icons */}
-                  <TabsLine
-                    tabs={PAYMENT_TABS}
-                    activeTab={activeTab}
-                    onTabChange={setActiveTab}
-                  />
+              {/* Milestone list */}
+              <div className="mt-5">
+                {project.milestones.length === 0 ? (
+                  <p className="py-4 text-center text-sm text-[rgba(255,255,255,0.5)]">
+                    No milestones defined yet.
+                  </p>
+                ) : (
+                  project.milestones.map((milestone, index) => (
+                    <SimpleMilestoneRow
+                      key={milestone.id ?? `ms-${index}`}
+                      milestone={milestone}
+                      index={index}
+                      isLast={index === project.milestones.length - 1}
+                    />
+                  ))
+                )}
+              </div>
 
-                  {/* Tab content */}
-                  <div className="mt-6">
-                    {activeTab === 'card' ? (
-                      <CardPaymentForm
-                        form={cardForm}
-                        onFieldChange={handleCardFieldChange}
-                      />
-                    ) : (
-                      <BankTransferPlaceholder />
-                    )}
+              {/* Total box */}
+              {project.milestones.length > 0 && (
+                <div className="mt-4 rounded-[8px] border border-[#3d3d3d] px-4 py-3">
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-sm font-semibold text-[#f5f5f5]">
+                      Total
+                    </span>
+                    <span className="text-base font-bold text-[#36d399]">
+                      {formatCurrency(total)}
+                    </span>
                   </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
-                  {/* Submit button */}
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    size="lg"
-                    className="mt-6 w-full gap-2"
-                  >
-                    <i className="ri-lock-line" aria-hidden="true" />
-                    Lock the Funds and Start the Project
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </form>
+        {/* RIGHT COLUMN — Deposit Flow */}
+        <div>
+          <h2
+            className="mb-4 text-lg font-semibold text-[#f5f5f5]"
+            style={{ fontFamily: 'Inter' }}
+          >
+            Deposit DUSD via Bank Transfer
+          </h2>
+
+          {step === 'review' && (
+            <DepositReviewStep
+              total={total}
+              depositAmount={depositAmount}
+              isLoadingUser={brampUser.isLoading}
+              onStart={() => void handleStartBankTransfer()}
+              isRequesting={requestDepositMutation.isPending}
+            />
+          )}
+
+          {step === 'bank-details' && bankInstructions && (
+            <BankTransferStep
+              instructions={bankInstructions}
+              onConfirm={() => void handleConfirmTransfer()}
+              isConfirming={false}
+            />
+          )}
+
+          {step === 'confirming' && <ConfirmingStep />}
+
+          {step === 'done' && (
+            <CompletedStep
+              projectId={project.id}
+              onBackToReview={() => navigate(`/projects/${project.id}/review-scope`)}
+            />
+          )}
+
+          {step === 'error' && (
+            <ErrorStep
+              message={stepError ?? 'An unexpected error occurred'}
+              onRetry={handleRetry}
+            />
+          )}
+        </div>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -349,8 +359,8 @@ interface SimpleMilestoneRowProps {
   isLast: boolean;
 }
 
-function SimpleMilestoneRow({ milestone, index, isLast }: SimpleMilestoneRowProps) {
-  const budget = getMilestoneBudget(milestone);
+function SimpleMilestoneRow({ milestone, index, isLast }: SimpleMilestoneRowProps): React.JSX.Element {
+  const budget = budgetPlanckToHuman(milestone.budget);
 
   return (
     <div
@@ -372,91 +382,277 @@ function SimpleMilestoneRow({ milestone, index, isLast }: SimpleMilestoneRowProp
   );
 }
 
-interface CardPaymentFormProps {
-  form: CardFormState;
-  onFieldChange: (
-    field: keyof CardFormState
-  ) => (event: React.ChangeEvent<HTMLInputElement>) => void;
+// ---------------------------------------------------------------------------
+// DepositReviewStep
+// ---------------------------------------------------------------------------
+
+interface DepositReviewStepProps {
+  /** Full project cost (sum of all milestones). */
+  total: number;
+  /** Amount to deposit (always the full project cost). */
+  depositAmount: number;
+  isLoadingUser: boolean;
+  onStart: () => void;
+  isRequesting: boolean;
 }
 
-function CardPaymentForm({ form, onFieldChange }: CardPaymentFormProps) {
+function DepositReviewStep({
+  total,
+  depositAmount,
+  isLoadingUser,
+  onStart,
+  isRequesting,
+}: DepositReviewStepProps): React.JSX.Element {
   return (
-    <div className="space-y-4">
-      {/* Card holder */}
-      <Input
-        label="Card Holder"
-        name="cardHolder"
-        placeholder="Full name on card"
-        value={form.cardHolder}
-        onChange={onFieldChange('cardHolder')}
-        autoComplete="cc-name"
-      />
+    <Card className="rounded-[12px] border-[#3d3d3d] bg-[#231f1f]">
+      <CardContent className="p-6 space-y-5">
+        {/* Amount summary */}
+        <div className="rounded-[8px] border border-[#3d3d3d] p-4 space-y-3">
+          <div className="flex items-baseline justify-between">
+            <span className="text-xs text-[rgba(255,255,255,0.5)]">Total project cost</span>
+            <span className="text-sm text-[#f5f5f5]">{total.toFixed(0)} DUSD</span>
+          </div>
 
-      {/* Card number */}
-      <div className="relative">
-        <Input
-          label="Card Number"
-          name="cardNumber"
-          placeholder="1234 5678 9012 3456"
-          value={form.cardNumber}
-          onChange={onFieldChange('cardNumber')}
-          inputMode="numeric"
-          maxLength={19}
-          autoComplete="cc-number"
-        />
-        <i
-          className="ri-bank-card-line pointer-events-none absolute bottom-2.5 right-3 text-[rgba(255,255,255,0.4)]"
-          aria-hidden="true"
-        />
+          <div className="flex items-baseline justify-between">
+            <span className="text-xs font-semibold text-[rgba(255,255,255,0.7)]">
+              Amount needed
+            </span>
+            <span className="text-base font-bold text-[#36d399]">
+              {depositAmount.toFixed(0)} DUSD
+            </span>
+          </div>
+        </div>
+
+        {/* Info note */}
+        <div className="flex items-start gap-2 rounded-[8px] bg-[#141414] p-4">
+          <i className="ri-information-line mt-0.5 shrink-0 text-base text-[#36d399]" aria-hidden="true" />
+          <p className="text-xs leading-relaxed text-[rgba(255,255,255,0.6)]">
+            Your fiat payment will be deposited as DUSD in your wallet on the Kreivo blockchain.
+            Once deposited, you can return to scope review to approve and fund the project escrow.
+          </p>
+        </div>
+
+        {/* CTA */}
+        <Button
+          variant="primary"
+          size="lg"
+          className="w-full gap-2"
+          onClick={onStart}
+          isLoading={isRequesting || isLoadingUser}
+          disabled={isRequesting || isLoadingUser}
+        >
+          <i className="ri-bank-line" aria-hidden="true" />
+          Start Bank Transfer
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// BankTransferStep
+// ---------------------------------------------------------------------------
+
+interface BankTransferStepProps {
+  instructions: {
+    amount: string;
+    bankAccount: string;
+    reference: string;
+  };
+  onConfirm: () => void;
+  isConfirming: boolean;
+}
+
+function BankTransferStep({ instructions, onConfirm, isConfirming }: BankTransferStepProps): React.JSX.Element {
+  const [copiedField, setCopiedField] = React.useState<string | null>(null);
+
+  function copyToClipboard(value: string, field: string): void {
+    void navigator.clipboard.writeText(value).then(() => {
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(null), 2000);
+    });
+  }
+
+  return (
+    <Card className="rounded-[12px] border-[#3d3d3d] bg-[#231f1f]">
+      <CardContent className="p-6 space-y-5">
+        <div>
+          <h3 className="text-sm font-semibold text-[#f5f5f5]">
+            Bank Transfer Details
+          </h3>
+          <p className="mt-1 text-xs text-[rgba(255,255,255,0.5)]">
+            Send the exact amount to the following bank account
+          </p>
+        </div>
+
+        {/* Bank details */}
+        <div className="space-y-3">
+          <CopyableField
+            label="Bank Account (IBAN)"
+            value={instructions.bankAccount}
+            onCopy={() => copyToClipboard(instructions.bankAccount, 'iban')}
+            isCopied={copiedField === 'iban'}
+          />
+          <CopyableField
+            label="Reference"
+            value={instructions.reference}
+            onCopy={() => copyToClipboard(instructions.reference, 'ref')}
+            isCopied={copiedField === 'ref'}
+          />
+          <CopyableField
+            label="Amount"
+            value={instructions.amount}
+            onCopy={() => copyToClipboard(instructions.amount, 'amount')}
+            isCopied={copiedField === 'amount'}
+          />
+        </div>
+
+        {/* Warning */}
+        <div className="flex items-start gap-2 rounded-[8px] border border-yellow-500/20 bg-yellow-500/10 p-3">
+          <i className="ri-error-warning-line mt-0.5 shrink-0 text-yellow-400" aria-hidden="true" />
+          <p className="text-xs text-yellow-300">
+            Use the exact reference and amount. Incorrect details may delay processing.
+          </p>
+        </div>
+
+        {/* Confirm */}
+        <Button
+          variant="primary"
+          size="lg"
+          className="w-full gap-2"
+          onClick={onConfirm}
+          isLoading={isConfirming}
+          disabled={isConfirming}
+        >
+          <i className="ri-check-line" aria-hidden="true" />
+          I&apos;ve Completed the Transfer
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// CopyableField
+// ---------------------------------------------------------------------------
+
+interface CopyableFieldProps {
+  label: string;
+  value: string;
+  onCopy: () => void;
+  isCopied: boolean;
+}
+
+function CopyableField({ label, value, onCopy, isCopied }: CopyableFieldProps): React.JSX.Element {
+  return (
+    <div className="rounded-[8px] border border-[#3d3d3d] bg-[#141414] p-3">
+      <p className="mb-1 text-xs text-[rgba(255,255,255,0.4)]">{label}</p>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-sm font-mono text-[#f5f5f5] break-all">{value}</span>
+        <button
+          type="button"
+          onClick={onCopy}
+          className="shrink-0 rounded-md p-1 text-[rgba(255,255,255,0.4)] transition-colors hover:text-[rgba(255,255,255,0.8)]"
+          title={isCopied ? 'Copied!' : 'Copy'}
+        >
+          <i className={isCopied ? 'ri-check-line text-[#36d399]' : 'ri-clipboard-line'} aria-hidden="true" />
+        </button>
       </div>
-
-      {/* Expiration + CVC row */}
-      <div className="grid grid-cols-2 gap-4">
-        <Input
-          label="Expiration"
-          name="expiration"
-          placeholder="MM/YY"
-          value={form.expiration}
-          onChange={onFieldChange('expiration')}
-          inputMode="numeric"
-          maxLength={5}
-          autoComplete="cc-exp"
-        />
-        <Input
-          label="CVC"
-          name="cvc"
-          placeholder="123"
-          value={form.cvc}
-          onChange={onFieldChange('cvc')}
-          inputMode="numeric"
-          maxLength={4}
-          autoComplete="cc-csc"
-        />
-      </div>
-
-      {/* Country */}
-      <Input
-        label="Country"
-        name="country"
-        placeholder="Select country"
-        value={form.country}
-        onChange={onFieldChange('country')}
-        autoComplete="country-name"
-      />
     </div>
   );
 }
 
-function BankTransferPlaceholder() {
+// ---------------------------------------------------------------------------
+// ConfirmingStep
+// ---------------------------------------------------------------------------
+
+function ConfirmingStep(): React.JSX.Element {
   return (
-    <div className="flex flex-col items-center gap-3 rounded-[8px] border border-[#3d3d3d] bg-[#141414] px-6 py-8 text-center">
-      <i
-        className="ri-bank-line text-3xl text-[rgba(255,255,255,0.3)]"
-        aria-hidden="true"
-      />
-      <p className="text-sm text-[rgba(255,255,255,0.7)]">
-        Bank transfer instructions will be provided after confirmation.
-      </p>
-    </div>
+    <Card className="rounded-[12px] border-[#3d3d3d] bg-[#231f1f]">
+      <CardContent className="p-6">
+        <div className="flex flex-col items-center gap-3 py-6">
+          <Spinner size="lg" />
+          <p className="text-sm font-medium text-[#f5f5f5]">
+            Confirming deposit...
+          </p>
+          <p className="text-xs text-[rgba(255,255,255,0.5)]">
+            Your DUSD will appear in your wallet shortly
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// CompletedStep
+// ---------------------------------------------------------------------------
+
+interface CompletedStepProps {
+  projectId: string;
+  onBackToReview: () => void;
+}
+
+function CompletedStep({ projectId, onBackToReview }: CompletedStepProps): React.JSX.Element {
+  return (
+    <Card className="rounded-[12px] border-[#36d399]/30 bg-[#36d399]/5">
+      <CardContent className="p-6 text-center space-y-4">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#36d399]/20">
+          <i className="ri-checkbox-circle-line text-3xl text-[#36d399]" aria-hidden="true" />
+        </div>
+        <h3 className="text-lg font-semibold text-[#f5f5f5]">
+          DUSD Deposited Successfully
+        </h3>
+        <p className="text-sm text-[rgba(255,255,255,0.6)]">
+          Your wallet has been loaded with DUSD. You can now go back to
+          review and approve the project scope.
+        </p>
+        <Button
+          variant="primary"
+          className="w-full"
+          onClick={onBackToReview}
+        >
+          Back to Scope Review
+        </Button>
+        <Link
+          to={`/projects/${projectId}`}
+          className="block text-xs text-[rgba(255,255,255,0.5)] transition-colors hover:text-[#f5f5f5]"
+        >
+          Go to Project
+        </Link>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ErrorStep
+// ---------------------------------------------------------------------------
+
+interface ErrorStepProps {
+  message: string;
+  onRetry: () => void;
+}
+
+function ErrorStep({ message, onRetry }: ErrorStepProps): React.JSX.Element {
+  return (
+    <Card className="rounded-[12px] border-red-500/30 bg-red-500/5">
+      <CardContent className="p-6 text-center space-y-4">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-500/20">
+          <i className="ri-error-warning-line text-3xl text-red-400" aria-hidden="true" />
+        </div>
+        <h3 className="text-lg font-semibold text-[#f5f5f5]">
+          Something went wrong
+        </h3>
+        <p className="text-sm text-red-400">{message}</p>
+        <Button
+          variant="primary"
+          className="w-full"
+          onClick={onRetry}
+        >
+          Try Again
+        </Button>
+      </CardContent>
+    </Card>
   );
 }

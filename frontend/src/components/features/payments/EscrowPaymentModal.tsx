@@ -43,15 +43,15 @@ interface EscrowStep {
 const ESCROW_STEPS: EscrowStep[] = [
   {
     icon: 'ri-file-list-3-line',
-    title: 'You fund the project',
+    title: 'You fund via bank transfer',
     description:
-      'When you agree to work with a consultant, the project fee is securely held in escrow. This shows commitment without paying upfront.',
+      'Your fiat payment is converted to DUSD tokens on the Kreivo blockchain. This happens automatically when you complete the bank transfer.',
   },
   {
-    icon: 'ri-calendar-schedule-line',
-    title: 'Work gets done',
+    icon: 'ri-lock-line',
+    title: 'Tokens are locked in escrow',
     description:
-      'The consultant and the team start working on your project. You can communicate, give feedback, and review progress as needed.',
+      'DUSD tokens are locked on the Kreivo blockchain via the Payments pallet. The funds are held securely until you approve the deliverables.',
   },
   {
     icon: 'ri-checkbox-circle-line',

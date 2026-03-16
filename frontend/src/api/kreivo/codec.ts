@@ -68,17 +68,17 @@ export function base58Decode(encoded: string): Uint8Array {
   const bytes: number[] = [0];
 
   for (const char of encoded) {
-    const carry = BASE58_ALPHABET.indexOf(char);
+    let carry = BASE58_ALPHABET.indexOf(char);
     if (carry < 0) throw new Error(`Invalid base58 character: ${char}`);
 
     for (let j = 0; j < bytes.length; j++) {
-      const value = bytes[j]! * 58 + carry;
-      bytes[j] = value & 0xff;
-      if (j + 1 < bytes.length) {
-        bytes[j + 1]! += value >> 8;
-      } else if (value >> 8) {
-        bytes.push(value >> 8);
-      }
+      carry += bytes[j]! * 58;
+      bytes[j] = carry & 0xff;
+      carry >>= 8;
+    }
+    while (carry > 0) {
+      bytes.push(carry & 0xff);
+      carry >>= 8;
     }
   }
 
@@ -409,15 +409,18 @@ export function systemAccountKey(accountId: Uint8Array): string {
  *     + blake2_128_concat(SCALE_encode(assetId))
  *     + blake2_128_concat(accountId)
  *
- * For Kreivo, the asset IDs are u32 SCALE-encoded (4 bytes little-endian).
+ * On Kreivo, the AssetId type is an enum: { Here: u32, Sibling: ..., External: ... }.
+ * All local assets use the "Here" variant (index 0), so the SCALE encoding is:
+ *   0x00 (variant index) + u32 little-endian (4 bytes) = 5 bytes total.
  */
 export function assetsAccountKey(assetId: number, accountId: Uint8Array): string {
-  // SCALE encode u32 as 4 bytes little-endian
-  const assetIdBytes = new Uint8Array(4);
-  assetIdBytes[0] = assetId & 0xff;
-  assetIdBytes[1] = (assetId >> 8) & 0xff;
-  assetIdBytes[2] = (assetId >> 16) & 0xff;
-  assetIdBytes[3] = (assetId >> 24) & 0xff;
+  // SCALE encode Enum('Here', assetId): variant 0 + u32 LE
+  const assetIdBytes = new Uint8Array(5);
+  assetIdBytes[0] = 0x00; // "Here" variant index
+  assetIdBytes[1] = assetId & 0xff;
+  assetIdBytes[2] = (assetId >> 8) & 0xff;
+  assetIdBytes[3] = (assetId >> 16) & 0xff;
+  assetIdBytes[4] = (assetId >> 24) & 0xff;
 
   return (
     '0x' +

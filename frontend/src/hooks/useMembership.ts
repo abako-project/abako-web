@@ -1,5 +1,5 @@
 /**
- * useMembershipNFT - React Query hook for Work3Spaces community membership
+ * useMembershipNFT - React Query hook for Abako community membership
  *
  * Resolves a developer's blockchain address from their email, then checks
  * whether that address holds a community membership NFT.
@@ -10,7 +10,7 @@
  *   3. If isMember === true, call getMember('1', membershipId) for details
  *   4. Return combined result with loading state
  *
- * Community ID '1' is the Work3Spaces community (from chain_spec.json genesis).
+ * Community ID '1' is the Abako community (from chain_spec.json genesis).
  */
 
 import { useQuery } from '@tanstack/react-query';
@@ -22,7 +22,7 @@ import type { CheckMembershipResponse, GetMemberResponse, GetUserAddressResponse
 // Constants
 // ---------------------------------------------------------------------------
 
-/** The Work3Spaces community ID as defined in chain_spec.json genesis config. */
+/** The Abako community ID as defined in chain_spec.json genesis config. */
 const COMMUNITY_ID = '1';
 
 // ---------------------------------------------------------------------------
@@ -57,7 +57,7 @@ export interface MembershipNFTData {
 // ---------------------------------------------------------------------------
 
 /**
- * Fetches the Work3Spaces community membership NFT status for a developer.
+ * Fetches the Abako community membership NFT status for a developer.
  *
  * The hook runs three sequential queries:
  *   - Query 1: getUserAddress to resolve blockchain address from email

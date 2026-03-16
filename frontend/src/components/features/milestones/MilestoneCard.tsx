@@ -10,6 +10,7 @@
 import { Card, CardContent } from '@components/ui';
 import { MilestoneStatusBadge } from '@components/features/projects/MilestoneStatusBadge';
 import { cn } from '@lib/cn';
+import { budgetPlanckToHuman } from '@lib/dusdUnits';
 import type { Milestone } from '@/types/index';
 
 interface MilestoneCardProps {
@@ -72,7 +73,7 @@ export function MilestoneCard({
   const availability = formatAvailability(milestone);
   const budgetDisplay =
     milestone.budget !== undefined && milestone.budget !== null
-      ? `${milestone.budget} USD`
+      ? `${budgetPlanckToHuman(milestone.budget).toLocaleString('en-US')} DUSD`
       : 'Budget Pending';
 
   return (

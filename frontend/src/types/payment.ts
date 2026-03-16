@@ -74,6 +74,8 @@ export interface ProjectPaymentSummary {
   awaitingPaymentCount: number;
   /** Count of milestones that have been paid. */
   paidCount: number;
+  /** Total amount deposited in escrow (0 if scope not yet accepted). */
+  escrowDeposited: number;
 }
 
 // ---------------------------------------------------------------------------

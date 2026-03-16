@@ -26,6 +26,7 @@ import { ToggleSwitch } from '@components/ui/ToggleSwitch';
 import { StarRating } from '@components/features/ratings/StarRating';
 import { ReviewsList } from '@components/features/ratings/ReviewsList';
 import { MembershipNFTCard } from '@components/features/profile/MembershipNFTCard';
+import { InfoItem } from '@components/features/profile/InfoItem';
 import type { DeveloperUpdateData, LanguagesMap } from '@/types/index';
 
 // ---------------------------------------------------------------------------
@@ -35,21 +36,6 @@ import type { DeveloperUpdateData, LanguagesMap } from '@/types/index';
 export interface DeveloperProfilePageProps {
   developerId: string;
   startInEditMode?: boolean;
-}
-
-// ---------------------------------------------------------------------------
-// Info item helper (used in show mode profile card)
-// ---------------------------------------------------------------------------
-
-function InfoItem({ icon, text }: { icon: string; text: string }) {
-  return (
-    <div className="flex items-center gap-[13px]">
-      <i className={`${icon} text-2xl leading-none text-[var(--text-dark-primary,#f5f5f5)]`} />
-      <span className="text-sm font-medium leading-[22px] text-[var(--text-dark-primary,#f5f5f5)]">
-        {text}
-      </span>
-    </div>
-  );
 }
 
 // ---------------------------------------------------------------------------

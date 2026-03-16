@@ -12,6 +12,7 @@
  */
 
 import { flowMilestoneState, MilestoneState } from '@lib/flowStates';
+import { budgetPlanckToHuman } from '@lib/dusdUnits';
 import type { Project, Milestone, ProjectPaymentSummary } from '@/types/index';
 
 /**
@@ -40,17 +41,11 @@ const FULLY_PAID_STATES: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Extracts the numeric budget from a milestone.
- * Handles string, number, and null/undefined values.
+ * Extracts the numeric budget from a milestone, converting from planck to human-readable DUSD.
+ * Budgets are stored on-chain in planck (smallest unit).
  */
 function getMilestoneBudget(milestone: Milestone): number {
-  if (milestone.budget === null || milestone.budget === undefined) {
-    return 0;
-  }
-  const val = typeof milestone.budget === 'string'
-    ? parseFloat(milestone.budget)
-    : milestone.budget;
-  return isNaN(val) ? 0 : val;
+  return budgetPlanckToHuman(milestone.budget);
 }
 
 /**
@@ -96,10 +91,12 @@ export function computeProjectPaymentSummary(
     paidMilestones.reduce((acc, m) => acc + getMilestoneBudget(m), 0) * 100
   ) / 100;
 
-  // Funds remaining
-  const fundsRemaining = Math.round(
+  // Funds remaining — clamped to zero to prevent negative display values
+  const fundsRemaining = Math.max(0, Math.round(
     (totalBudgetFunded - paymentInAdvanced - paymentForCompleted) * 100
-  ) / 100;
+  ) / 100);
+
+  const escrowDeposited = computeEscrowDeposited(project);
 
   return {
     project,
@@ -109,7 +106,32 @@ export function computeProjectPaymentSummary(
     fundsRemaining,
     awaitingPaymentCount: advancedPaidMilestones.length,
     paidCount: paidMilestones.length,
+    escrowDeposited,
   };
+}
+
+/**
+ * Computes the escrow deposited amount for a project.
+ *
+ * Once a project's scope is accepted (scope_accepted or later),
+ * the total milestone budget represents the amount deposited in escrow.
+ * Returns 0 for projects that haven't reached scope_accepted yet.
+ */
+export function computeEscrowDeposited(project: Project): number {
+  const ESCROW_ELIGIBLE_STATES: ReadonlySet<string> = new Set([
+    'scope_accepted',
+    'team_assigned',
+    'completed',
+    'payment_released',
+  ]);
+
+  if (!project.state || !ESCROW_ELIGIBLE_STATES.has(project.state)) {
+    return 0;
+  }
+
+  return Math.round(
+    project.milestones.reduce((acc, m) => acc + getMilestoneBudget(m), 0) * 100
+  ) / 100;
 }
 
 /**

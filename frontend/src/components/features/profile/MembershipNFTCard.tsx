@@ -1,5 +1,5 @@
 /**
- * MembershipNFTCard - Work3Spaces Community Membership NFT Badge
+ * MembershipNFTCard - Abako Community Membership NFT Badge
  *
  * Displays a developer's on-chain community membership as a stylized NFT card.
  * Only renders when isMember === true; callers should guard with that condition.
@@ -69,13 +69,13 @@ function NFTVisual() {
         />
       </svg>
 
-      {/* W3S monogram */}
+      {/* Abako monogram */}
       <div className="absolute inset-0 flex items-center justify-center">
         <span
           className="text-white font-bold leading-none select-none"
-          style={{ fontSize: '13px', letterSpacing: '-0.5px', textShadow: '0 1px 3px rgba(0,0,0,0.4)' }}
+          style={{ fontSize: '11px', letterSpacing: '-0.3px', textShadow: '0 1px 3px rgba(0,0,0,0.4)' }}
         >
-          W3S
+          Abako
         </span>
       </div>
 
@@ -140,7 +140,7 @@ export interface MembershipNFTCardProps {
 // ---------------------------------------------------------------------------
 
 /**
- * Renders a compact NFT card for the developer's Work3Spaces community membership.
+ * Renders a compact NFT card for the developer's Abako community membership.
  *
  * @example
  * ```tsx
@@ -233,7 +233,7 @@ export function MembershipNFTCard({
         </div>
       </div>
 
-      {/* Right decoration: Work3Spaces label */}
+      {/* Right decoration: Abako label */}
       <div
         className="hidden sm:flex flex-col items-end gap-1 flex-shrink-0"
         aria-hidden="true"
@@ -242,7 +242,7 @@ export function MembershipNFTCard({
           className="text-[10px] font-bold uppercase tracking-widest leading-none"
           style={{ color: 'rgba(54,211,153,0.5)' }}
         >
-          Work3Spaces
+          Abako
         </span>
         <span
           className="text-[10px] font-medium leading-none"
