@@ -2,26 +2,33 @@
  * ScopeReviewPage - Client review of the proposed project scope and milestones
  *
  * Allows the client to review the consultant's proposed milestones and either
- * accept or reject the scope. On acceptance, funds the project via escrow.
+ * accept or reject the scope.
  *
  * Route: /projects/:id/review-scope
  *
- * Flow:
- *   Accept -> useAcceptScope() -> show EscrowPaymentModal -> navigate /payments/:id/fund
- *   Reject -> useRejectScope() -> navigate back /projects/:id
+ * Accept flow:
+ *   1. Check DUSD balance via useDusdBalance
+ *   2. If insufficient → navigate to /payments/:id/fund (on-ramp page)
+ *   3. If sufficient → create escrow (Payments.pay) → acceptScope → navigate /projects/:id
+ *
+ * Reject flow:
+ *   useRejectScope() → navigate back /projects/:id
  */
 
 import * as React from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useProject } from '@hooks/useProjects';
-import { useAcceptScope } from '@hooks/useScope';
-import { useRejectScope } from '@hooks/useScope';
+import { useAcceptScope, useRejectScope } from '@hooks/useScope';
+import { useDusdBalance } from '@hooks/useKrvxBalance';
+import { useAuthStore } from '@/stores/authStore';
+import { getUserAddress } from '@/api/virto';
 import { Button, Card, CardContent, Spinner } from '@components/ui';
 import {
   EscrowPaymentModal,
   isEscrowModalDismissed,
 } from '@components/features/payments/EscrowPaymentModal';
 import { cn } from '@lib/cn';
+import { budgetPlanckToHuman } from '@lib/dusdUnits';
 import type { Milestone, Project } from '@/types/index';
 
 // ---------------------------------------------------------------------------
@@ -33,15 +40,6 @@ function formatCurrency(value: string | number | null | undefined): string {
   const num = typeof value === 'string' ? parseFloat(value) : value;
   if (isNaN(num)) return '$0';
   return `$${num.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-}
-
-function getMilestoneBudgetNum(milestone: Milestone): number {
-  if (milestone.budget === null || milestone.budget === undefined) return 0;
-  const val =
-    typeof milestone.budget === 'string'
-      ? parseFloat(milestone.budget)
-      : milestone.budget;
-  return isNaN(val) ? 0 : val;
 }
 
 function formatDeliveryDate(
@@ -100,7 +98,7 @@ function resolveBudgetLabel(
 
 type Decision = 'accept' | 'reject' | null;
 
-export default function ScopeReviewPage() {
+export default function ScopeReviewPage(): React.JSX.Element {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
@@ -108,62 +106,98 @@ export default function ScopeReviewPage() {
   const { mutate: acceptScope, isPending: isAccepting } = useAcceptScope();
   const { mutate: rejectScope, isPending: isRejecting } = useRejectScope();
 
+  const user = useAuthStore((s) => s.user);
+  const [userAddress, setUserAddress] = React.useState<string | null>(null);
+  const [addressError, setAddressError] = React.useState<string | null>(null);
+
+  const dusdBalance = useDusdBalance(userAddress);
+
   const [decision, setDecision] = React.useState<Decision>(null);
   const [clientComment, setClientComment] = React.useState('');
   const [showEscrowModal, setShowEscrowModal] = React.useState(false);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
-
   const [copiedEmail, setCopiedEmail] = React.useState(false);
+
+  // Fetch user's blockchain address on mount
+  React.useEffect(() => {
+    if (!user?.email) return;
+    let cancelled = false;
+
+    getUserAddress(user.email)
+      .then((res) => {
+        if (!cancelled) setUserAddress(res.address);
+      })
+      .catch(() => {
+        if (!cancelled) setAddressError('Could not resolve blockchain account');
+      });
+
+    return () => { cancelled = true; };
+  }, [user?.email]);
 
   // --------------------------------------------------------------------------
   // Handlers
   // --------------------------------------------------------------------------
 
-  function handleCopyEmail(email: string) {
+  function handleCopyEmail(email: string): void {
     void navigator.clipboard.writeText(email).then(() => {
       setCopiedEmail(true);
       setTimeout(() => setCopiedEmail(false), 2000);
     });
   }
 
-  function handleSubmit() {
+  async function handleSubmit(): Promise<void> {
     if (!id || !data || !decision) return;
     setSubmitError(null);
 
-    if (decision === 'accept') {
-      acceptScope(
-        { projectId: id, clientResponse: clientComment },
-        {
-          onSuccess: () => {
-            if (isEscrowModalDismissed()) {
-              navigate(`/payments/${id}/fund`);
-            } else {
-              setShowEscrowModal(true);
-            }
-          },
-          onError: (err) => {
-            setSubmitError(err.message);
-          },
-        }
-      );
-    } else {
+    if (decision === 'reject') {
       rejectScope(
         { projectId: id, clientResponse: clientComment },
         {
-          onSuccess: () => {
-            navigate(`/projects/${id}`);
-          },
-          onError: (err) => {
-            setSubmitError(err.message);
-          },
+          onSuccess: () => navigate(`/projects/${id}`),
+          onError: (err) => setSubmitError(err.message),
         }
       );
+      return;
     }
+
+    // --- Accept flow ---
+    const totalCost = data.project.milestones.reduce(
+      (acc, m) => acc + budgetPlanckToHuman(m.budget),
+      0
+    );
+
+    // Check if user has enough DUSD
+    const hasFunds = dusdBalance.data?.hasSufficientFunds(totalCost) ?? false;
+    if (!hasFunds) {
+      // Navigate to on-ramp page — user needs to deposit the full project cost.
+      // Using the total (not the difference) avoids issues when the balance
+      // changes between navigation and the on-ramp API call.
+      if (isEscrowModalDismissed()) {
+        navigate(`/payments/${id}/fund`, { state: { totalCost } });
+      } else {
+        setShowEscrowModal(true);
+      }
+      return;
+    }
+
+    // Accept scope — the backend's approve_scope() contract call handles
+    // transferring DUSD from the client's wallet to the project contract.
+    // No separate escrow creation needed.
+    acceptScope(
+      { projectId: id, clientResponse: clientComment },
+      {
+        onSuccess: () => navigate(`/projects/${id}`),
+        onError: (err) => setSubmitError(err.message),
+      }
+    );
   }
 
-  function handleEscrowModalClose() {
+  function handleEscrowModalClose(): void {
     setShowEscrowModal(false);
-    navigate(`/payments/${id}/fund`);
+    const totalCostForModal = data
+      ? data.project.milestones.reduce((acc, m) => acc + budgetPlanckToHuman(m.budget), 0)
+      : 0;
+    navigate(`/payments/${id}/fund`, { state: { totalCost: totalCostForModal } });
   }
 
   // --------------------------------------------------------------------------
@@ -215,14 +249,21 @@ export default function ScopeReviewPage() {
   const isMutating = isAccepting || isRejecting;
 
   const totalCost = project.milestones.reduce(
-    (acc, m) => acc + getMilestoneBudgetNum(m),
+    (acc, m) => acc + budgetPlanckToHuman(m.budget),
     0
   );
+
+  const hasSufficientFunds = dusdBalance.data?.hasSufficientFunds(totalCost) ?? false;
 
   const consultantComment =
     project.comments?.[project.comments.length - 1]?.consultantComment ?? '';
 
   const budgetLabel = resolveBudgetLabel(project.budget, allBudgets);
+
+  // Resolve accept button text based on balance
+  const acceptButtonText = decision === 'accept' && !hasSufficientFunds
+    ? 'Fund & Accept Scope'
+    : 'Submit Response';
 
   // --------------------------------------------------------------------------
   // Render
@@ -298,7 +339,7 @@ export default function ScopeReviewPage() {
               type="button"
               variant="primary"
               size="md"
-              onClick={handleSubmit}
+              onClick={() => void handleSubmit()}
               disabled={decision === null || isMutating}
               isLoading={isMutating}
               className={cn(
@@ -306,29 +347,35 @@ export default function ScopeReviewPage() {
                 decision === null && 'opacity-50'
               )}
             >
-              Submit Response
+              {acceptButtonText}
             </Button>
           </div>
         </div>
 
         {/* Error feedback */}
-        {submitError && (
+        {(submitError || addressError) && (
           <div className="mb-6 rounded-[12px] border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
             <i className="ri-error-warning-line mr-2" aria-hidden="true" />
-            {submitError}
+            {submitError ?? addressError}
           </div>
+        )}
+
+        {/* DUSD Balance indicator (shown when accept is selected) */}
+        {decision === 'accept' && (
+          <BalanceIndicator
+            dusdFree={dusdBalance.data?.dusdFree}
+            isLoading={dusdBalance.isLoading}
+            totalCost={totalCost}
+            hasSufficientFunds={hasSufficientFunds}
+          />
         )}
 
         {/* Two-column layout */}
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,_2fr)_minmax(0,_1fr)]">
-          {/* ----------------------------------------------------------------
-              LEFT COLUMN — Milestones & Cost
-          ---------------------------------------------------------------- */}
+          {/* LEFT COLUMN — Milestones & Cost */}
           <MilestonesCard project={project} totalCost={totalCost} />
 
-          {/* ----------------------------------------------------------------
-              RIGHT COLUMN — Consultant Proposal
-          ---------------------------------------------------------------- */}
+          {/* RIGHT COLUMN — Consultant Proposal */}
           <ConsultantProposalCard
             project={project}
             totalCost={totalCost}
@@ -346,6 +393,53 @@ export default function ScopeReviewPage() {
 }
 
 // ---------------------------------------------------------------------------
+// BalanceIndicator
+// ---------------------------------------------------------------------------
+
+interface BalanceIndicatorProps {
+  dusdFree: string | undefined;
+  isLoading: boolean;
+  totalCost: number;
+  hasSufficientFunds: boolean;
+}
+
+function BalanceIndicator({ dusdFree, isLoading, totalCost, hasSufficientFunds }: BalanceIndicatorProps): React.JSX.Element {
+  if (isLoading) {
+    return (
+      <div className="mb-6 flex items-center gap-2 rounded-[12px] border border-[#3d3d3d] bg-[#231f1f] px-4 py-3 text-sm text-[rgba(255,255,255,0.7)]">
+        <Spinner size="sm" />
+        <span>Checking DUSD balance...</span>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={cn(
+        'mb-6 flex items-center gap-3 rounded-[12px] border px-4 py-3 text-sm',
+        hasSufficientFunds
+          ? 'border-[#36d399]/30 bg-[#36d399]/10 text-[#36d399]'
+          : 'border-yellow-500/30 bg-yellow-500/10 text-yellow-400'
+      )}
+    >
+      <i
+        className={hasSufficientFunds ? 'ri-checkbox-circle-line' : 'ri-error-warning-line'}
+        aria-hidden="true"
+      />
+      <span>
+        DUSD Balance: <strong>{dusdFree ?? '0'}</strong>
+        {' · '}
+        Required: <strong>{totalCost.toFixed(3)}</strong>
+        {hasSufficientFunds
+          ? <span className="ml-2">— Sufficient balance to fund escrow</span>
+          : <span className="ml-2">— You need {(totalCost - parseFloat(dusdFree ?? '0')).toFixed(0)} more DUSD</span>
+        }
+      </span>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // MilestonesCard
 // ---------------------------------------------------------------------------
 
@@ -354,7 +448,7 @@ interface MilestonesCardProps {
   totalCost: number;
 }
 
-function MilestonesCard({ project, totalCost }: MilestonesCardProps) {
+function MilestonesCard({ project, totalCost }: MilestonesCardProps): React.JSX.Element {
   return (
     <Card className="rounded-[12px] border-[#3d3d3d] bg-[#231f1f]">
       <CardContent className="p-6">
@@ -420,7 +514,7 @@ interface MilestoneItemProps {
   isLast: boolean;
 }
 
-function MilestoneItem({ milestone, index, isLast }: MilestoneItemProps) {
+function MilestoneItem({ milestone, index, isLast }: MilestoneItemProps): React.JSX.Element {
   return (
     <div
       className={cn(
@@ -480,7 +574,7 @@ function MilestoneItem({ milestone, index, isLast }: MilestoneItemProps) {
         <div className="flex shrink-0 flex-col items-end gap-1.5">
           {milestone.budget !== null && milestone.budget !== undefined && (
             <span className="text-sm font-semibold text-[#f5f5f5]">
-              {formatCurrency(milestone.budget)}
+              {formatCurrency(budgetPlanckToHuman(milestone.budget))}
             </span>
           )}
           {milestone.deliveryDate && (
@@ -518,7 +612,7 @@ function ConsultantProposalCard({
   onClientCommentChange,
   onCopyEmail,
   copiedEmail,
-}: ConsultantProposalCardProps) {
+}: ConsultantProposalCardProps): React.JSX.Element {
   const consultant = project.consultant;
   const consultantName = consultant?.name ?? 'Project Leader';
   const consultantEmail = consultant?.email;

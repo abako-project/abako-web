@@ -23,8 +23,10 @@
 
 import { useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@components/ui/Card';
+import { Button } from '@components/ui/Button';
 import { Spinner } from '@components/ui/Spinner';
 import { useWalletBalance } from '@hooks/useWalletBalance';
+import { DusdOnRampFlow } from '@components/features/dao/KrvxOnRampFlow';
 import type { AssetBalance } from '@/types/dao';
 
 // ---------------------------------------------------------------------------
@@ -76,6 +78,8 @@ function AssetSummary({ asset }: { asset: AssetBalance }) {
 export interface WalletCardProps {
   /** Blockchain address (ss58) to query. Hook is disabled when falsy. */
   address: string | undefined | null;
+  /** User email for Bramp on-ramp user creation. */
+  email?: string | undefined;
   className?: string;
 }
 
@@ -87,8 +91,9 @@ export interface WalletCardProps {
  * <WalletCard address={developer.workerAddress} />
  * ```
  */
-export function WalletCard({ address, className = '' }: WalletCardProps) {
+export function WalletCard({ address, email, className = '' }: WalletCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showOnRamp, setShowOnRamp] = useState(false);
   const { data, isLoading, isError } = useWalletBalance(address);
 
   const toggleExpanded = useCallback(() => {
@@ -184,9 +189,7 @@ export function WalletCard({ address, className = '' }: WalletCardProps) {
           <div className="flex items-center gap-2 flex-wrap">
             <AssetSummary asset={data.ksm} />
             <span className="text-[var(--text-dark-tertiary,rgba(255,255,255,0.36))] text-sm">·</span>
-            <span className="text-sm text-[var(--text-dark-secondary,rgba(255,255,255,0.7))]">
-              {data.dusd.amount} DUSD
-            </span>
+            <AssetSummary asset={data.dusd} />
           </div>
 
           <i
@@ -196,6 +199,30 @@ export function WalletCard({ address, className = '' }: WalletCardProps) {
             aria-hidden="true"
           />
         </button>
+
+        {/* Buy DUSD button */}
+        {email && address && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full border-[var(--state-brand-active,#36d399)] text-[var(--state-brand-active,#36d399)] hover:bg-[rgba(54,211,153,0.08)]"
+            onClick={() => setShowOnRamp(true)}
+          >
+            <i className="ri-add-circle-line mr-1.5" aria-hidden="true" />
+            Buy DUSD
+          </Button>
+        )}
+
+        {/* Inline on-ramp flow */}
+        {showOnRamp && email && address && (
+          <div className="rounded-lg border border-[var(--state-brand-active,#36d399)]/30 bg-[var(--base-fill-1,#333)] p-4">
+            <DusdOnRampFlow
+              address={address}
+              email={email}
+              onClose={() => setShowOnRamp(false)}
+            />
+          </div>
+        )}
 
         {/* Breakdown (collapsible) */}
         {isExpanded && (

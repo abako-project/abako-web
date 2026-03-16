@@ -182,7 +182,7 @@ export default function DaoViewPage() {
           <CommunitiesCard limit={3} />
 
           {/* Column 3: Wallet */}
-          <WalletCard address={blockchainAddress} />
+          <WalletCard address={blockchainAddress} email={email} />
         </div>
       </div>
 

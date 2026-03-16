@@ -81,14 +81,14 @@ export async function getExplorerSnapshot(): Promise<ExplorerSnapshot> {
 
 /** Kreivo asset IDs (from chain_spec / runtime). */
 export const ASSET_IDS = {
-  /** DUSD stablecoin asset ID on Kreivo. */
-  DUSD: 1984,
+  /** DUSD stablecoin asset ID on Kreivo (on-chain: Here(1), metadata: "testUSD" / "tUSD"). */
+  DUSD: 1,
 } as const;
 
-/** Decimal places for each asset. */
+/** Decimal places for each asset (sourced from on-chain Assets.Metadata). */
 export const DECIMALS = {
   KSM: 12,
-  DUSD: 6,
+  DUSD: 3,
 } as const;
 
 export interface BalanceResult {
@@ -107,11 +107,13 @@ export async function getBalances(ss58Address: string): Promise<BalanceResult> {
   const accountId = ss58ToAccountId(ss58Address);
 
   const sysKey = systemAccountKey(accountId);
-  const assetKey = assetsAccountKey(ASSET_IDS.DUSD, accountId);
+  const dusdKey = assetsAccountKey(ASSET_IDS.DUSD, accountId);
 
-  const [sysStorage, assetStorage] = await rpcBatch<[StorageHex, StorageHex]>([
+  const [sysStorage, dusdStorage] = await rpcBatch<
+    [StorageHex, StorageHex]
+  >([
     { method: 'state_getStorage', params: [sysKey] },
-    { method: 'state_getStorage', params: [assetKey] },
+    { method: 'state_getStorage', params: [dusdKey] },
   ]);
 
   let ksmPlanck = 0n;
@@ -123,8 +125,8 @@ export async function getBalances(ss58Address: string): Promise<BalanceResult> {
   }
 
   let dusdPlanck = 0n;
-  if (assetStorage) {
-    const decoded = decodeAssetsAccount(assetStorage);
+  if (dusdStorage) {
+    const decoded = decodeAssetsAccount(dusdStorage);
     dusdPlanck = decoded.balance;
   }
 

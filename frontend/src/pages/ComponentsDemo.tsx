@@ -21,7 +21,7 @@ export const ComponentsDemo: React.FC = () => {
       <div className="mx-auto max-w-7xl space-y-12">
         <div>
           <h1 className="mb-2 text-4xl font-bold text-[var(--text-dark-primary,#f5f5f5)]">
-            PolkaTalent Design System
+            Abako Design System
           </h1>
           <p className="text-lg text-[var(--text-dark-secondary,rgba(255,255,255,0.7))]">
             Figma Design Tokens + Shared UI Primitive Components

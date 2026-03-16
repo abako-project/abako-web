@@ -76,54 +76,58 @@ export interface FundResponse {
 
 export interface CreatePaymentData {
   amount: string | number;
-  currency?: string;
   recipientAddress: string;
   projectId?: string;
   milestoneId?: string;
-  [key: string]: unknown;
+  remark?: string;
 }
 
 export interface CreatePaymentResponse {
   success: boolean;
   paymentId: string;
-  transactionHash?: string;
-  [key: string]: unknown;
+  txHash?: string;
 }
 
 export interface ReleasePaymentData {
   paymentId: string;
-  [key: string]: unknown;
 }
 
 export interface ReleasePaymentResponse {
   success: boolean;
   paymentId: string;
-  transactionHash?: string;
-  [key: string]: unknown;
+  txHash?: string;
 }
 
 export interface AcceptAndPayData {
   paymentId: string;
-  [key: string]: unknown;
 }
 
 export interface AcceptAndPayResponse {
   success: boolean;
   paymentId: string;
-  transactionHash?: string;
-  [key: string]: unknown;
+  txHash?: string;
 }
 
-export interface GetPaymentResponse {
+/** Raw backend response shape for getPayment. */
+export interface GetPaymentRawResponse {
+  payment: {
+    from: string;
+    to: string;
+    amount: string;
+    asset: string;
+    state: string;
+    paymentId: string;
+  } | null;
+}
+
+/** Frontend-friendly flat payment info. */
+export interface PaymentInfo {
   paymentId: string;
+  from: string;
+  to: string;
   amount: string;
-  currency?: string;
-  status: string;
-  recipientAddress: string;
-  senderAddress?: string;
-  createdAt?: string;
-  releasedAt?: string;
-  [key: string]: unknown;
+  asset: string;
+  state: string;
 }
 
 // ========= Memberships Types ==========

@@ -50,21 +50,9 @@ export default function ProfilePage() {
     );
   }
 
-  // Client profile
+  // Client profile (renders its own full-width layout matching the developer profile)
   if (user.clientId) {
-    return (
-      <div className="px-8 lg:px-14 py-10">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Profile</h1>
-          <p className="text-muted-foreground">
-            Manage your client profile and settings
-          </p>
-        </div>
-        <div className="max-w-4xl">
-          <ClientProfilePage clientId={user.clientId} startInEditMode={startInEditMode} />
-        </div>
-      </div>
-    );
+    return <ClientProfilePage clientId={user.clientId} startInEditMode={startInEditMode} />;
   }
 
   // Developer profile (renders its own full-width layout matching Figma)

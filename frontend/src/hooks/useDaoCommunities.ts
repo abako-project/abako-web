@@ -4,7 +4,7 @@
  * Uses the existing Virto memberships API (already in the codebase) to
  * fetch community data. No new backend endpoints needed.
  *
- * Currently queries community ID '1' (Work3Spaces), which is the main
+ * Currently queries community ID '1' (Abako), which is the main
  * community on the Kreivo chain. When more communities are available,
  * this can be extended to query multiple community IDs.
  *
@@ -23,11 +23,11 @@ import type { CommunitiesData, Community } from '@/types/dao';
 
 /**
  * Known community IDs on the Kreivo chain.
- * Community '1' is Work3Spaces (from chain_spec.json genesis).
+ * Community '1' is Abako (from chain_spec.json genesis).
  * Additional communities can be added here as they are created.
  */
 const KNOWN_COMMUNITIES: Array<{ id: string; name: string }> = [
-  { id: '1', name: 'Work3Spaces' },
+  { id: '1', name: 'Abako' },
   { id: '2', name: 'Virto Network' },
   { id: '3', name: 'Kreivo DAO' },
 ];

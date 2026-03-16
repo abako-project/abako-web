@@ -1,7 +1,7 @@
 /**
  * API Configuration
  * Direct connection to external APIs (no backend proxy needed).
- * All 3 APIs live under dev.abako.xyz with full CORS support.
+ * All APIs live under VITE_API_BASE_URL (defaults to dev.abako.xyz).
  */
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://dev.abako.xyz';
@@ -76,6 +76,13 @@ export const adapterConfig = {
       byClient: (clientId: string) => `/ratings/client/${clientId}`,
       byDeveloper: (developerId: string) => `/ratings/developer/${developerId}`,
       byProject: (projectId: string) => `/ratings/project/${projectId}`,
+    },
+    bramp: {
+      createUser: '/bramp/users',
+      getUserByEmail: '/bramp/users',
+      requestDeposit: '/bramp/deposit',
+      confirmDeposit: (depositId: string) => `/bramp/deposit/${depositId}/confirm`,
+      createWithdrawal: '/bramp/withdrawal',
     },
     calendar: {
       deploy: (version: string) => `/calendar/deploy/${version}`,

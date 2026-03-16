@@ -14,14 +14,13 @@
 
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Input, Spinner } from '@components/ui';
+import { Button, Input } from '@components/ui';
 import { useApproveProposal, useRejectProposal, useAssignTeam } from '@hooks/useProjects';
-import { useVoteMembers, useSubmitVotes, useSubmitCoordinatorRatings, useSubmitDeveloperRating } from '@hooks/useVotes';
 import {
   flowProjectState,
   ProjectState,
 } from '@lib/flowStates';
-import type { Project, ScopeSession, User, VoteMember } from '@/types/index';
+import type { Project, ScopeSession, User } from '@/types/index';
 
 interface ProjectActionsProps {
   project: Project;
@@ -102,10 +101,10 @@ export function ProjectActions({
         </div>
       )}
 
-      {/* Project In Progress: client sees completion form when all milestones done */}
+      {/* Project In Progress: client navigates to evaluation page when all milestones done */}
       {state === ProjectState.ProjectInProgress && (
         allMilestonesCompleted && isClient ? (
-          <ProjectCompletionForm project={project} />
+          <ProjectCompletionPrompt projectId={project.id} />
         ) : (
           <div className="rounded-lg border border-[#3D3D3D] bg-[#231F1F] p-5">
             <div className="flex items-center gap-2 text-sm text-[#36D399]">
@@ -113,31 +112,34 @@ export function ProjectActions({
               <span>
                 {allMilestonesCompleted && isConsultant
                   ? 'All milestones have been completed. Waiting for the client to finalize the project and release payments.'
-                  : 'Project is in progress. Check milestones below for individual task status.'}
+                  : 'Project is in progress. Check milestones for individual task status.'}
               </span>
             </div>
           </div>
         )
       )}
 
-      {/* Completed: show rating forms per role */}
+      {/* Completed: show evaluation prompts per role + client release payment */}
       {state === ProjectState.Completed && (
         <>
           {isConsultant && (
-            <ConsultantRatingForm project={project} />
+            <ConsultantEvaluationPrompt projectId={project.id} />
           )}
           {isDeveloper && (
-            <DeveloperRatingForm project={project} />
+            <DeveloperEvaluationPrompt projectId={project.id} />
           )}
           {isClient && (
-            <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-5">
-              <div className="flex items-center gap-2 text-sm text-green-400">
-                <i className="ri-checkbox-circle-line" />
-                <span>
-                  This project has been completed successfully.
-                </span>
+            <>
+              <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-5">
+                <div className="flex items-center gap-2 text-sm text-green-400">
+                  <i className="ri-checkbox-circle-line" />
+                  <span>
+                    This project has been completed successfully.
+                  </span>
+                </div>
               </div>
-            </div>
+              <ClientReleasePayment project={project} />
+            </>
           )}
           {!isConsultant && !isDeveloper && !isClient && (
             <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-5">
@@ -152,16 +154,20 @@ export function ProjectActions({
         </>
       )}
 
-      {/* All: Payment Released */}
+      {/* Payment Released: developer can claim, others see info */}
       {state === ProjectState.PaymentReleased && (
-        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-5">
-          <div className="flex items-center gap-2 text-sm text-emerald-400">
-            <i className="ri-money-dollar-circle-line" />
-            <span>
-              Payment has been released for this project.
-            </span>
+        isDeveloper ? (
+          <DeveloperClaimPayment project={project} />
+        ) : (
+          <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-5">
+            <div className="flex items-center gap-2 text-sm text-emerald-400">
+              <i className="ri-money-dollar-circle-line" />
+              <span>
+                Payment has been released for this project.
+              </span>
+            </div>
           </div>
-        </div>
+        )
       )}
     </div>
   );
@@ -400,125 +406,11 @@ function ProposalRejectedInfo({ project }: { project: Project }) {
 }
 
 // ---------------------------------------------------------------------------
-// Interactive Star Rating helper
+// Client: Prompt to navigate to the full-page team evaluation
 // ---------------------------------------------------------------------------
 
-function InteractiveStarRating({
-  value,
-  onChange,
-  maxStars = 5,
-}: {
-  value: number;
-  onChange: (val: number) => void;
-  maxStars?: number;
-}) {
-  const [hovered, setHovered] = useState(0);
-
-  return (
-    <div className="flex items-center gap-0.5">
-      {Array.from({ length: maxStars }, (_, i) => {
-        const starValue = i + 1;
-        const filled = starValue <= (hovered || value);
-        return (
-          <button
-            key={i}
-            type="button"
-            onClick={() => onChange(starValue)}
-            onMouseEnter={() => setHovered(starValue)}
-            onMouseLeave={() => setHovered(0)}
-            className="p-0.5 focus:outline-none"
-          >
-            <svg
-              className={`w-6 h-6 transition-colors ${
-                filled
-                  ? 'text-[#36D399]'
-                  : 'text-[rgba(255,255,255,0.2)]'
-              }`}
-              viewBox="0 0 16 16"
-              fill="currentColor"
-            >
-              <path d="M8 1.333l1.885 4.347 4.782.427-3.614 3.08 1.117 4.646L8 11.347l-4.17 2.486 1.117-4.646-3.614-3.08 4.782-.427L8 1.333z" />
-            </svg>
-          </button>
-        );
-      })}
-      <span className="ml-2 text-xs text-[#9B9B9B]">{value}/{maxStars}</span>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Rating row helper
-// ---------------------------------------------------------------------------
-
-function RatingRow({
-  label,
-  sublabel,
-  avatarUrl,
-  value,
-  onChange,
-}: {
-  label: string;
-  sublabel?: string;
-  avatarUrl?: string;
-  value: number;
-  onChange: (val: number) => void;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3 py-2">
-      <div className="flex items-center gap-2 min-w-0">
-        {avatarUrl && (
-          <img
-            className="h-7 w-7 rounded-full object-cover shrink-0"
-            src={avatarUrl}
-            alt={label}
-            onError={(e) => {
-              (e.target as HTMLImageElement).src = '/images/none.png';
-            }}
-          />
-        )}
-        <div className="min-w-0">
-          <p className="text-sm text-[#F5F5F5] truncate">{label}</p>
-          {sublabel && (
-            <p className="text-xs text-[#9B9B9B] truncate">{sublabel}</p>
-          )}
-        </div>
-      </div>
-      <InteractiveStarRating value={value} onChange={onChange} />
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Client: Complete project with team ratings (all milestones done)
-// ---------------------------------------------------------------------------
-
-function ProjectCompletionForm({ project }: { project: Project }) {
-  const { data: voteData, isLoading: loadingMembers } = useVoteMembers(project.id);
-  const submitVotes = useSubmitVotes();
-
-  const [coordinatorRating, setCoordinatorRating] = useState(0);
-  const [memberRatings, setMemberRatings] = useState<Record<string, number>>({});
-
-  const handleMemberRating = useCallback((userId: string, score: number) => {
-    setMemberRatings((prev) => ({ ...prev, [userId]: score }));
-  }, []);
-
-  const handleSubmit = useCallback(() => {
-    const votes = (voteData?.members ?? [])
-      .filter((m): m is VoteMember & { userId: string } => !!m.userId)
-      .map((m) => ({
-        userId: m.userId,
-        score: memberRatings[m.userId] ?? 0,
-      }));
-    submitVotes.mutate({ projectId: project.id, votes, coordinatorRating });
-  }, [submitVotes, project.id, voteData, memberRatings, coordinatorRating]);
-
-  const allRated =
-    coordinatorRating > 0 &&
-    (voteData?.members ?? []).every(
-      (m) => !m.userId || (memberRatings[m.userId] ?? 0) > 0
-    );
+function ProjectCompletionPrompt({ projectId }: { projectId: string }) {
+  const navigate = useNavigate();
 
   return (
     <div className="rounded-lg border border-[#3D3D3D] bg-[#231F1F] p-5 space-y-4">
@@ -534,229 +426,80 @@ function ProjectCompletionForm({ project }: { project: Project }) {
         Rate the team members to complete the project and release payments.
       </p>
 
-      {/* Coordinator self-rating */}
-      <div className="border-t border-[#3D3D3D] pt-3">
-        <p className="text-xs text-[#9B9B9B] mb-2">Coordinator Rating</p>
-        <RatingRow
-          label="Self Assessment"
-          sublabel="Rate your own coordination"
-          value={coordinatorRating}
-          onChange={setCoordinatorRating}
-        />
-      </div>
-
-      {/* Team member ratings */}
-      {loadingMembers ? (
-        <div className="flex justify-center py-3">
-          <Spinner size="sm" />
-        </div>
-      ) : (
-        (voteData?.members ?? []).length > 0 && (
-          <div className="border-t border-[#3D3D3D] pt-3 space-y-1">
-            <p className="text-xs text-[#9B9B9B] mb-2">Team Members</p>
-            {voteData!.members.map((member) =>
-              member.userId ? (
-                <RatingRow
-                  key={member.userId}
-                  label={member.name}
-                  sublabel={member.role ?? undefined}
-                  avatarUrl={member.imageUrl}
-                  value={memberRatings[member.userId] ?? 0}
-                  onChange={(score) => handleMemberRating(member.userId!, score)}
-                />
-              ) : null
-            )}
-          </div>
-        )
-      )}
-
       <Button
         variant="primary"
-        onClick={handleSubmit}
-        isLoading={submitVotes.isPending}
-        disabled={submitVotes.isPending || !allRated}
-        className="w-full"
+        onClick={() => navigate(`/projects/${projectId}/evaluate`)}
+        className="w-full gap-2"
       >
-        Complete Project
+        <i className="ri-star-line" aria-hidden="true" />
+        Evaluate Team
       </Button>
-
-      {submitVotes.error && (
-        <p className="text-xs text-red-400">{submitVotes.error.message}</p>
-      )}
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Consultant: Rate client + team after project completion
+// Consultant: Prompt to navigate to the full-page coordinator evaluation
 // ---------------------------------------------------------------------------
 
-function ConsultantRatingForm({ project }: { project: Project }) {
-  const { data: voteData, isLoading: loadingMembers } = useVoteMembers(project.id);
-  const submitRatings = useSubmitCoordinatorRatings();
-
-  const [clientRating, setClientRating] = useState(0);
-  const [teamRatings, setTeamRatings] = useState<Record<string, number>>({});
-  const [submitted, setSubmitted] = useState(false);
-
-  const handleTeamRating = useCallback((userId: string, score: number) => {
-    setTeamRatings((prev) => ({ ...prev, [userId]: score }));
-  }, []);
-
-  const handleSubmit = useCallback(() => {
-    const ratings: Array<[string, number]> = (voteData?.members ?? [])
-      .filter((m): m is VoteMember & { userId: string } => !!m.userId)
-      .map((m) => [m.userId, teamRatings[m.userId] ?? 0]);
-
-    submitRatings.mutate(
-      { projectId: project.id, clientRating, teamRatings: ratings },
-      { onSuccess: () => setSubmitted(true) }
-    );
-  }, [submitRatings, project.id, clientRating, teamRatings, voteData]);
-
-  const allRated =
-    clientRating > 0 &&
-    (voteData?.members ?? []).every(
-      (m) => !m.userId || (teamRatings[m.userId] ?? 0) > 0
-    );
-
-  if (submitted) {
-    return (
-      <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-5">
-        <div className="flex items-center gap-2 text-sm text-green-400">
-          <i className="ri-checkbox-circle-line" />
-          <span>Ratings submitted successfully.</span>
-        </div>
-      </div>
-    );
-  }
+function ConsultantEvaluationPrompt({ projectId }: { projectId: string }) {
+  const navigate = useNavigate();
 
   return (
     <div className="rounded-lg border border-[#3D3D3D] bg-[#231F1F] p-5 space-y-4">
+      <div className="flex items-center gap-2 text-sm text-[#36D399] mb-1">
+        <i className="ri-checkbox-circle-line" />
+        <span>Project completed!</span>
+      </div>
+
       <h4 className="text-sm font-semibold text-[#F5F5F5]">
         Rate Project Participants
       </h4>
       <p className="text-xs text-[#9B9B9B]">
-        As the coordinator, rate the client and team members.
+        As the coordinator, rate the client and team members to finalize your feedback.
       </p>
-
-      {/* Client rating */}
-      {project.client && (
-        <div className="border-t border-[#3D3D3D] pt-3">
-          <p className="text-xs text-[#9B9B9B] mb-2">Client</p>
-          <RatingRow
-            label={project.client.name}
-            sublabel="Client"
-            avatarUrl={`/clients/${project.clientId}/attachment`}
-            value={clientRating}
-            onChange={setClientRating}
-          />
-        </div>
-      )}
-
-      {/* Team member ratings */}
-      {loadingMembers ? (
-        <div className="flex justify-center py-3">
-          <Spinner size="sm" />
-        </div>
-      ) : (
-        (voteData?.members ?? []).length > 0 && (
-          <div className="border-t border-[#3D3D3D] pt-3 space-y-1">
-            <p className="text-xs text-[#9B9B9B] mb-2">Team Members</p>
-            {voteData!.members.map((member) =>
-              member.userId ? (
-                <RatingRow
-                  key={member.userId}
-                  label={member.name}
-                  sublabel={member.role ?? undefined}
-                  avatarUrl={member.imageUrl}
-                  value={teamRatings[member.userId] ?? 0}
-                  onChange={(score) => handleTeamRating(member.userId!, score)}
-                />
-              ) : null
-            )}
-          </div>
-        )
-      )}
 
       <Button
         variant="primary"
-        onClick={handleSubmit}
-        isLoading={submitRatings.isPending}
-        disabled={submitRatings.isPending || !allRated}
-        className="w-full"
+        onClick={() => navigate(`/projects/${projectId}/evaluate/consultant`)}
+        className="w-full gap-2"
       >
-        Submit Ratings
+        <i className="ri-star-line" aria-hidden="true" />
+        Rate Participants
       </Button>
-
-      {submitRatings.error && (
-        <p className="text-xs text-red-400">{submitRatings.error.message}</p>
-      )}
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Developer: Rate coordinator after project completion
+// Developer: Prompt to navigate to the full-page developer evaluation
 // ---------------------------------------------------------------------------
 
-function DeveloperRatingForm({ project }: { project: Project }) {
-  const submitRating = useSubmitDeveloperRating();
-  const [coordinatorRating, setCoordinatorRating] = useState(0);
-  const [submitted, setSubmitted] = useState(false);
-
-  const handleSubmit = useCallback(() => {
-    submitRating.mutate(
-      { projectId: project.id, coordinatorRating },
-      { onSuccess: () => setSubmitted(true) }
-    );
-  }, [submitRating, project.id, coordinatorRating]);
-
-  if (submitted) {
-    return (
-      <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-5">
-        <div className="flex items-center gap-2 text-sm text-green-400">
-          <i className="ri-checkbox-circle-line" />
-          <span>Rating submitted successfully.</span>
-        </div>
-      </div>
-    );
-  }
+function DeveloperEvaluationPrompt({ projectId }: { projectId: string }) {
+  const navigate = useNavigate();
 
   return (
     <div className="rounded-lg border border-[#3D3D3D] bg-[#231F1F] p-5 space-y-4">
+      <div className="flex items-center gap-2 text-sm text-[#36D399] mb-1">
+        <i className="ri-checkbox-circle-line" />
+        <span>Project completed!</span>
+      </div>
+
       <h4 className="text-sm font-semibold text-[#F5F5F5]">
         Rate the Coordinator
       </h4>
       <p className="text-xs text-[#9B9B9B]">
-        Rate the project coordinator based on your experience.
+        Share your experience working with the project coordinator.
       </p>
-
-      {project.consultant && (
-        <div className="border-t border-[#3D3D3D] pt-3">
-          <RatingRow
-            label={project.consultant.name}
-            sublabel="Coordinator"
-            avatarUrl={`/developers/${project.consultantId}/attachment`}
-            value={coordinatorRating}
-            onChange={setCoordinatorRating}
-          />
-        </div>
-      )}
 
       <Button
         variant="primary"
-        onClick={handleSubmit}
-        isLoading={submitRating.isPending}
-        disabled={submitRating.isPending || coordinatorRating === 0}
-        className="w-full"
+        onClick={() => navigate(`/projects/${projectId}/evaluate/developer`)}
+        className="w-full gap-2"
       >
-        Submit Rating
+        <i className="ri-star-line" aria-hidden="true" />
+        Rate Coordinator
       </Button>
-
-      {submitRating.error && (
-        <p className="text-xs text-red-400">{submitRating.error.message}</p>
-      )}
     </div>
   );
 }
@@ -803,6 +546,40 @@ function ClientScopeResponse({ project }: { project: Project }) {
         <i className="ri-file-search-line" aria-hidden="true" />
         Review Scope &amp; Milestones
       </Button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Client: Payment auto-released info (smart contract handles escrow)
+// ---------------------------------------------------------------------------
+
+function ClientReleasePayment({ project: _project }: { project: Project }) {
+  return (
+    <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-5">
+      <div className="flex items-center gap-2 text-sm text-emerald-400">
+        <i className="ri-checkbox-circle-line" />
+        <span>
+          Payment was automatically released from escrow upon project completion.
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Developer: Payment auto-released info (smart contract handles escrow)
+// ---------------------------------------------------------------------------
+
+function DeveloperClaimPayment({ project: _project }: { project: Project }) {
+  return (
+    <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-5">
+      <div className="flex items-center gap-2 text-sm text-emerald-400">
+        <i className="ri-money-dollar-circle-line" />
+        <span>
+          Payment has been released for this project.
+        </span>
+      </div>
     </div>
   );
 }

@@ -1,12 +1,12 @@
 import * as React from 'react';
 import { cn } from '@lib/cn';
 
-export interface W3SLogoProps extends React.SVGAttributes<SVGSVGElement> {
+export interface AbakoLogoProps extends React.SVGAttributes<SVGSVGElement> {
   size?: number;
   color?: string;
 }
 
-const W3SLogo = React.forwardRef<SVGSVGElement, W3SLogoProps>(
+const AbakoLogo = React.forwardRef<SVGSVGElement, AbakoLogoProps>(
   ({ className, size = 24, color = '#36D399', ...props }, ref) => {
     const aspectRatio = 310 / 123.4;
     const width = size * aspectRatio;
@@ -20,7 +20,7 @@ const W3SLogo = React.forwardRef<SVGSVGElement, W3SLogoProps>(
         height={size}
         fill={color}
         className={cn('inline-block', className)}
-        aria-label="W3S Logo"
+        aria-label="Abako Logo"
         role="img"
         {...props}
       >
@@ -41,6 +41,6 @@ const W3SLogo = React.forwardRef<SVGSVGElement, W3SLogoProps>(
   }
 );
 
-W3SLogo.displayName = 'W3SLogo';
+AbakoLogo.displayName = 'AbakoLogo';
 
-export { W3SLogo };
+export { AbakoLogo };

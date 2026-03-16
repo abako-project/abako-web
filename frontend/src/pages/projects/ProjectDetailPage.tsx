@@ -6,7 +6,7 @@
  *
  * Features:
  * - Project header with title, summary, state badge
- * - TabsLine component for switching views (Details, Milestones, Activity)
+ * - TabsLine component for switching views (Milestones, Details)
  * - Client and consultant info
  * - Project scope: description, delivery time, budget, project type
  * - Milestones list with individual states
@@ -26,7 +26,7 @@ import { ScopeBuilder } from '@components/features/projects/ScopeBuilder';
 import { MilestoneList } from '@components/features/milestones/MilestoneList';
 import type { Project, ScopeSession } from '@/types/index';
 
-type TabValue = 'details' | 'milestones' | 'activity';
+type TabValue = 'milestones' | 'details';
 
 export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -164,7 +164,7 @@ export default function ProjectDetailPage() {
           )}
 
           {/* Milestones Tab Content */}
-          {activeTab === 'milestones' && project.milestones.length > 0 && (
+          {activeTab === 'milestones' && (
             <MilestoneList
               milestones={project.milestones}
               allDeliveryTimes={allDeliveryTimes}
@@ -175,17 +175,6 @@ export default function ProjectDetailPage() {
             />
           )}
 
-          {/* Activity Tab Content */}
-          {activeTab === 'activity' && (
-            <div className="rounded-[var(--radi-6,12px)] border border-[var(--base-border,#3d3d3d)] bg-[var(--base-surface-2,#231f1f)] p-6">
-              <h3 className="text-lg font-semibold text-[var(--text-dark-primary,#f5f5f5)] mb-4">
-                Activity
-              </h3>
-              <p className="text-sm text-[var(--text-dark-secondary,rgba(255,255,255,0.7))]">
-                Activity log coming soon...
-              </p>
-            </div>
-          )}
         </div>
 
         {/* Right column: Actions */}
@@ -223,7 +212,6 @@ function TabsLine({ activeTab, onTabChange }: TabsLineProps) {
   const tabs: Array<{ value: TabValue; label: string }> = [
     { value: 'details', label: 'Details' },
     { value: 'milestones', label: 'Milestones' },
-    { value: 'activity', label: 'Activity' },
   ];
 
   return (

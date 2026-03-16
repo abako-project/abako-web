@@ -18,7 +18,7 @@ export default function LoginPage() {
             color: 'var(--text-dark-primary, #f5f5f5)',
           }}
         >
-          Welcome to PolkaTalent
+          Welcome to Abako
         </h1>
         <p
           style={{

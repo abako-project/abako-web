@@ -21,9 +21,10 @@
 6. [Getting Started](#-getting-started)
 7. [Available Scripts](#-available-scripts)
 8. [Migration Status](#-migration-status)
-9. [TODOs](#-todos)
-10. [Contributing to the Project](#-contributing-to-the-project)
-11. [Useful Links](#-useful-links)
+9. [Application Test Flow](#application-test-flow-for-external-testers)
+10. [TODOs](#-todos)
+11. [Contributing to the Project](#-contributing-to-the-project)
+12. [Useful Links](#-useful-links)
 
 ---
 
@@ -453,10 +454,7 @@ Before getting started, make sure you have the following installed on your compu
 git clone <URL_DEL_REPOSITORIO>
 
 # Enter the project folder
-cd website/website
-
-# Switch to the active working branch
-git checkout feature/web-refactor
+cd frontend
 ```
 
 ### 2. Install frontend dependencies
@@ -581,6 +579,713 @@ Phase 5: Payments + Profiles + Cutover   [----------]   0%  PENDING
 ```
 
 > **What "ATOMIC" means**: Phase 4 cannot be done partially. The scope workflow (create milestones, edit, submit for approval) requires that all pages and components are connected. If we complete only half, the application is left in an inconsistent state where the user cannot finish a flow they started.
+
+---
+
+## Application Test Flow (for External Testers)
+
+This section provides a complete step-by-step test plan covering **every functionality** of the application. Follow the flows in order — each section builds on the previous one.
+
+> **Test environment**: `https://web.dev.abako.xyz` (or `http://localhost:5173` for local development)
+>
+> **Important**: You need two browser profiles (or two different browsers) to test the full flow — one for the **Client** role and one for the **Developer/Consultant** role.
+
+---
+
+### Flow 1: Registration
+
+#### 1.1 Client Registration
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Navigate to `/register` | Role selection page with "Developer" and "Client" cards |
+| 2 | Click **"Client"** card | Navigate to `/register/client` |
+| 3 | Enter an email and name | Fields accept input |
+| 4 | Click **"Register"** | WebAuthn biometric prompt appears (fingerprint, Face ID, or security key) |
+| 5 | Complete biometric authentication | Success message, redirect to `/login/client` |
+| 6 | Verify "Sign in here" link | Navigates to `/login/client` |
+
+#### 1.2 Developer Registration
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Navigate to `/register` | Role selection page |
+| 2 | Click **"Developer"** card | Navigate to `/register/developer` |
+| 3 | Enter email and name | Fields accept input |
+| 4 | Click **"Register"** | WebAuthn biometric prompt appears |
+| 5 | Complete biometric authentication | Success message, redirect to `/login/developer` |
+
+---
+
+### Flow 2: Login
+
+#### 2.1 Client Login
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Navigate to `/login` | Role selection page with "Client" and "Developer" cards |
+| 2 | Click **"Client"** card | Navigate to `/login/client` |
+| 3 | Enter the registered client email | Field accepts input |
+| 4 | Click **"Login"** | WebAuthn biometric prompt appears |
+| 5 | Complete biometric authentication | Status messages shown (Connecting... / Verifying... / Success), then redirect to `/dashboard` |
+| 6 | Verify sidebar shows user name and avatar | User info displayed at the bottom of the sidebar |
+
+#### 2.2 Developer Login
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Navigate to `/login` → click **"Developer"** | Navigate to `/login/developer` |
+| 2 | Enter the registered developer email | Field accepts input |
+| 3 | Click **"Login"** | WebAuthn prompt → redirect to `/dashboard` |
+
+#### 2.3 Login Error Handling
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Enter a non-registered email and click Login | Error message displayed inline below the form |
+| 2 | Cancel the WebAuthn prompt | Error message displayed |
+
+---
+
+### Flow 3: Sidebar Navigation & Logout
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Click **"Dashboard"** in sidebar | Navigate to `/dashboard` |
+| 2 | Click **"Projects"** in sidebar | Navigate to `/projects` |
+| 3 | Click **"Payments"** in sidebar | Navigate to `/payments` |
+| 4 | Click **"Profile"** in sidebar | Navigate to `/profile` |
+| 5 | Click **"Settings"** in sidebar | Navigate to `/settings` (placeholder page: "Settings will be available soon") |
+| 6 | Click **"Logout"** button (bottom of sidebar) | Session cleared, redirect to `/login` |
+| 7 | Try navigating to `/dashboard` while logged out | Redirect to `/login` (ProtectedRoute guard) |
+
+**Mobile sidebar (resize browser to < 768px):**
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Click hamburger icon (top left) | Sidebar overlay opens |
+| 2 | Click any nav link | Sidebar closes, navigation occurs |
+| 3 | Click outside the sidebar overlay | Sidebar closes |
+
+---
+
+### Flow 4: Dashboard
+
+> **Login as: Client**
+
+#### 4.1 Projects Tab
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Navigate to `/dashboard` | Dashboard loads with "Projects" tab active by default |
+| 2 | Verify **"New Project"** button is visible (client only) | Green button top-right corner |
+| 3 | Verify projects are grouped by state | Groups like "Projects In Progress", "Awaiting Proposal Approval", etc. |
+| 4 | Click any project card | Navigate to `/projects/:id` |
+
+#### 4.2 Tasks Tab (Kanban Board)
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Click **"Tasks"** tab | Kanban board with 3 columns: "Scheduled Milestones", "To Review", "Completed" |
+| 2 | Verify "To Review" column has **green border** | Green accent border around the column |
+| 3 | Verify milestones with `rejected` state appear in "To Review" column with a **red "Rejected" badge** | Badge visible on the card |
+| 4 | Verify milestones with `in_review` state show a **"Review Now"** button (client only) | Green button on the milestone card |
+| 5 | Click **"Review Now"** on a milestone | Navigate to `/projects/:projectId/milestones/:milestoneId/review` |
+| 6 | Click a project filter chip | Kanban filters to show only milestones from that project |
+| 7 | Click **"All Projects"** chip | All milestones shown again |
+| 8 | Type in the **search field** | Milestones filtered by title, description, or project name |
+| 9 | Clear the search field | All milestones shown again |
+| 10 | Verify milestone count at the bottom | "Showing X of Y milestones" text |
+
+> **Login as: Developer**
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Navigate to `/dashboard` → Tasks tab | Kanban board visible |
+| 2 | Verify **"New Project"** button is NOT visible | Button hidden for developers |
+| 3 | Verify milestones in `task_in_progress` state show **"Submit for Review"** button | Button visible on developer's own milestones |
+| 4 | Verify **"Review Now"** button is NOT visible for developers | Button hidden — review is client-only |
+
+---
+
+### Flow 5: Create a Project Proposal (Client Only)
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Click **"New Project"** button (dashboard or projects page) | Navigate to `/projects/new` — 3-step wizard with stepper |
+
+**Step 1 — Project Details:**
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 2 | Leave all fields empty, click **"Next"** | Validation errors shown on required fields |
+| 3 | Fill in "Project Title" (min 5 chars) | Input accepted |
+| 4 | Fill in "Short Summary" (max 280 chars) | Character counter visible and updates |
+| 5 | Select a "Project Type" from dropdown | Option selected |
+| 6 | Fill in "Project Link" (optional) | Input accepted |
+| 7 | Fill in "Project Description" (min 20 chars) | Input accepted |
+| 8 | Click **"Next: Define Objectives"** | Advances to Step 2 |
+
+**Step 2 — Objectives & Constraints:**
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 9 | Click **"Add Objective"** | New objective input row appears |
+| 10 | Type an objective text | Input accepted |
+| 11 | Click **"Add Objective"** again | Second row appears |
+| 12 | Click trash icon on an objective | Row removed |
+| 13 | Click up/down arrows | Objectives reorder |
+| 14 | Click **"Add Constraint"** | New constraint input row appears |
+| 15 | Select a **Budget** radio option | Option selected |
+| 16 | Select a **Delivery Time** radio option | Option selected |
+| 17 | If "Specific date" selected | Date picker appears inline |
+| 18 | Click **"Back"** | Returns to Step 1 with data preserved |
+| 19 | Click **"Next: Review & Submit"** | Advances to Step 3 |
+
+**Step 3 — Review & Submit:**
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 20 | Verify all entered data is displayed in the review card | Title, summary, description, objectives, constraints, budget, delivery time |
+| 21 | Click pencil (edit) icon | Jumps back to Step 1 for editing |
+| 22 | Click **"Submit Project"** | Project created, redirect to `/projects/:id` |
+
+---
+
+### Flow 6: Consultant Approves Proposal
+
+> **Login as: Developer/Consultant** (the DAO-assigned consultant)
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Navigate to `/projects/:id` (the newly created project) | Project detail page with state "Awaiting Proposal Approval" |
+| 2 | Verify right column shows **"Proposal Review"** section | "Approve Proposal" and "Reject Proposal" buttons visible |
+| 3 | Click **"Approve Proposal"** | Loading spinner, then project state changes to "Scoping In Progress" |
+
+**Test rejection path (on a different project):**
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 4 | Click **"Reject Proposal"** | Inline form expands with text input for reason |
+| 5 | Try clicking **"Reject Proposal"** confirm with empty reason | Button is disabled |
+| 6 | Enter a rejection reason | Button becomes enabled |
+| 7 | Click **"Reject Proposal"** confirm | Project state changes to "Proposal Rejected" |
+| 8 | Click **"Cancel"** | Form collapses, no action taken |
+
+---
+
+### Flow 7: Consultant Builds Scope
+
+> **Login as: Consultant**
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Navigate to the approved project | State is "Scoping In Progress" |
+| 2 | Click **"Details"** tab | ScopeBuilder visible for the consultant |
+| 3 | Verify right column shows **"Build Scope"** button | Button visible |
+| 4 | Click **"Add Milestone"** in the ScopeBuilder | New milestone form opens |
+| 5 | Fill in: Title, Description, Budget (DUSD), Delivery Time, Delivery Date | All fields accept input |
+| 6 | Select Role, Proficiency, Availability from dropdowns | Options selected |
+| 7 | Click skill chips to select required skills | Chips toggle selected/deselected |
+| 8 | If "Hours per Week" availability selected | "Hours per week" number input appears |
+| 9 | Click **"Add Milestone"** to add more milestones | Additional milestones appended |
+| 10 | Click a milestone row in the summary list | Edit form opens for that milestone |
+| 11 | Click trash icon on a milestone | Milestone removed from list |
+| 12 | Enter a **consultant comment** in the comment textarea | Input accepted |
+| 13 | Click **"Submit Scope"** | Scope submitted, project state changes to "Scope Validation Needed" |
+
+---
+
+### Flow 8: Client Reviews Scope
+
+> **Login as: Client**
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Navigate to the project | State is "Scope Validation Needed" |
+| 2 | Verify right column shows **"Review Scope & Milestones"** button | Button visible with consultant's comment preview |
+| 3 | Click **"Review Scope & Milestones"** | Navigate to `/projects/:id/review-scope` |
+| 4 | Verify left column shows all milestones with details | Title, description, role, budget, delivery date per milestone |
+| 5 | Verify total cost summary and overall delivery date | Aggregated values displayed |
+| 6 | Verify right column shows consultant avatar, name, and comment | Consultant proposal card displayed |
+| 7 | Optionally enter a client comment | Textarea accepts input |
+
+**Accept path:**
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 8 | Click **"Accept"** toggle | Accept state selected, DUSD balance indicator shown |
+| 9 | If first time: **EscrowPaymentModal** appears | 4-step explainer timeline displayed |
+| 10 | Check **"Don't Show Again"** checkbox | Checkbox checked |
+| 11 | Click **"Understood"** | Modal closes |
+| 12 | If sufficient DUSD balance | Scope accepted, redirect to `/projects/:id` |
+| 13 | If insufficient DUSD balance | Warning displayed, redirect to `/payments/:id/fund` for funding |
+
+**Reject path:**
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 14 | Click **"Reject"** toggle instead | Reject state selected |
+| 15 | Click submit | Scope rejected, redirect to `/projects/:id` with state "Scope Rejected" |
+
+---
+
+### Flow 9: Client Funds Escrow (Bank Transfer)
+
+> **Login as: Client** (when redirected from scope acceptance with insufficient funds)
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Arrive at `/payments/:id/fund` | 4-step bank transfer flow, left column shows milestones and total amount |
+
+**Step 1 — Review:**
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 2 | Verify amount needed is displayed | Total project cost shown |
+| 3 | Click **"Start Bank Transfer"** | API call to Bramp, transition to Step 2 |
+
+**Step 2 — Bank Details:**
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 4 | Verify IBAN is displayed | IBAN field with copy button |
+| 5 | Click copy icon next to IBAN | IBAN copied to clipboard |
+| 6 | Verify Reference is displayed | Reference field with copy button |
+| 7 | Click copy icon next to Reference | Reference copied to clipboard |
+| 8 | Verify Amount is displayed | Amount field with copy button |
+| 9 | Click **"I've Completed the Transfer"** | Transition to Step 3 (confirming) |
+
+**Step 3 — Confirming:**
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 10 | Verify spinner/loading state is displayed | Waiting for backend confirmation |
+
+**Step 4 — Done:**
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 11 | Verify success card is displayed | "Payment confirmed" message |
+| 12 | Click **"Back to Scope Review"** | Navigate to `/projects/:id/review-scope` |
+| 13 | Click **"Go to Project"** link | Navigate to `/projects/:id` |
+
+**Error state:**
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 14 | If deposit fails | Error message displayed with "Try Again" button |
+| 15 | Click **"Try Again"** | Resets to Step 1 |
+
+---
+
+### Flow 10: Consultant Assigns Team
+
+> **Login as: Consultant**
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Navigate to the project (state "Awaiting Team Assignment") | Right column shows "Team Assignment" section |
+| 2 | Click **"Assign Team"** | Loading spinner, then project state changes to "In Progress" |
+| 3 | Verify milestones now have assigned developers | Developer names visible on each milestone |
+
+---
+
+### Flow 11: Developer Submits Milestone for Review
+
+> **Login as: Developer** (assigned to a milestone)
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Navigate to the project → **Milestones** tab | Milestones listed with states |
+| 2 | Find a milestone in "In Progress" state | "Submit for Review" button visible |
+| 3 | Click **"Submit for Review"** | Inline form expands showing milestone summary |
+| 4 | Verify milestone title and budget displayed (read-only) | Summary card shown |
+| 5 | Enter a **Documentation URL** | Input accepted |
+| 6 | Enter **Other Links** | Input accepted |
+| 7 | Click **"Submit Milestone"** | Milestone state changes to "In Review" |
+| 8 | Click **"Cancel"** instead | Form collapses, no action taken |
+
+**Alternative: Submit from Dashboard Kanban**
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 9 | Navigate to Dashboard → Tasks tab | Kanban board visible |
+| 10 | Click **"Submit for Review"** on a milestone card | Navigate to project detail page |
+
+---
+
+### Flow 12: Client Reviews Milestone
+
+> **Login as: Client**
+
+#### 12.1 Review from Dashboard (Recommended — Full Page)
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Navigate to Dashboard → Tasks tab | "To Review" column shows milestones with `in_review` state |
+| 2 | Click **"Review Now"** on a milestone card | Navigate to `/projects/:projectId/milestones/:milestoneId/review` |
+| 3 | Verify milestone details card | Title, description, budget badge, developer avatar and name displayed |
+| 4 | Verify documentation and links (if submitted) | Clickable external links shown |
+| 5 | Click **"Accept Delivery"** toggle | Toggle highlighted green, comment label says "Comment (optional)" |
+| 6 | Click **"Reject Delivery"** toggle | Toggle highlighted red, comment label says "Feedback for the developer (recommended)" |
+| 7 | Enter a comment in the textarea | Input accepted |
+| 8 | With no decision selected, verify submit button | Button disabled with text "Select a decision above" |
+| 9 | With Accept selected, click **"Confirm Accept"** | Milestone accepted, redirect to `/projects/:projectId` |
+| 10 | Verify help card shows consultant email | "Have some doubts?" card with email visible |
+
+**Test rejection path:**
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 11 | Click **"Reject Delivery"** toggle | Toggle highlighted red |
+| 12 | Enter feedback in textarea | Input accepted |
+| 13 | Click **"Confirm Reject"** | Milestone rejected, redirect to `/projects/:projectId` |
+
+#### 12.2 Review from Project Detail (Inline)
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Navigate to `/projects/:id` → Milestones tab | Milestones listed |
+| 2 | Find a milestone in "Awaiting Review" state | "Accept Delivery" and "Reject Delivery" buttons visible |
+| 3 | Click **"Accept Delivery"** | Confirmation form expands with optional comment field |
+| 4 | Click **"Confirm Accept"** | Milestone accepted |
+| 5 | Click **"Reject Delivery"** | Confirmation form expands with feedback field |
+| 6 | Click **"Confirm Reject"** | Milestone rejected |
+| 7 | Click **"Cancel"** on either form | Form collapses |
+
+---
+
+### Flow 13: Developer Resubmits Rejected Milestone
+
+> **Login as: Developer/Consultant**
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Navigate to the project → Milestones tab | Rejected milestone shows red warning: "Client rejected this submission" |
+| 2 | Verify "Submit for Review" form is available below the warning | Resubmission form visible |
+| 3 | Update documentation and links | Input accepted |
+| 4 | Click **"Submit Milestone"** | Milestone resubmitted, state changes back to "In Review" |
+
+---
+
+### Flow 14: Client Evaluates Team (Project Completion)
+
+> **Login as: Client** (when ALL milestones are completed)
+
+#### 14.1 From Project Detail
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Navigate to the project | Right column shows "All milestones completed!" with **"Evaluate Team"** button |
+| 2 | Click **"Evaluate Team"** | Navigate to `/projects/:id/evaluate` |
+
+#### 14.2 Team Evaluation Page
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 3 | Verify page header | Star icon, "Evaluate Your Team" title, project name in green |
+| 4 | Verify coordinator card | 56px avatar, name, "Project Coordinator" role, 5 empty stars |
+| 5 | Verify team member cards | One card per developer with 56px avatar, name, role, 5 empty stars |
+| 6 | Hover over stars | Stars highlight up to hovered position |
+| 7 | Click a star on the coordinator card | Rating set (e.g., 4/5), stars filled in green |
+| 8 | Click a star on each team member card | Ratings set for all members |
+| 9 | Verify **"Complete Project"** button is disabled before all ratings | Button disabled with helper text "Please rate all team members before completing the project" |
+| 10 | After rating ALL members, verify button is enabled | Button active |
+| 11 | Click **"Complete Project"** | Project completed, redirect to `/projects/:id` |
+| 12 | Click **"Back to Project"** link | Navigate to `/projects/:id` without submitting |
+
+---
+
+### Flow 15: Consultant Rates Client & Team
+
+> **Login as: Consultant** (after project is completed)
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Navigate to the completed project | Right column shows "Rate Project Participants" form |
+| 2 | Verify client rating row | Client name, avatar, interactive star rating |
+| 3 | Rate the client (click stars) | Stars filled in green |
+| 4 | Verify team member rating rows | One row per developer |
+| 5 | Rate all team members | Stars filled |
+| 6 | Verify **"Submit Ratings"** is disabled until all rated | Button disabled |
+| 7 | Click **"Submit Ratings"** | Success message: "Ratings submitted successfully" |
+
+---
+
+### Flow 16: Developer Rates Coordinator
+
+> **Login as: Developer** (after project is completed)
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Navigate to the completed project | Right column shows "Rate the Coordinator" form |
+| 2 | Verify coordinator row | Coordinator name, avatar, interactive star rating |
+| 3 | Rate the coordinator (click stars) | Stars filled in green |
+| 4 | Click **"Submit Rating"** | Success message: "Rating submitted successfully" |
+
+---
+
+### Flow 17: Client Releases Payment
+
+> **Login as: Client** (after project is completed)
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Navigate to the completed project | Right column shows "Release Payment" section |
+| 2 | Verify escrow amount and status displayed | Amount in DUSD and current state shown |
+| 3 | Click **"Release Payment to Developer"** | Confirmation step appears with irreversibility warning |
+| 4 | Click **"Confirm Release"** | Payment released, success message displayed |
+| 5 | Click **"Cancel"** instead | Confirmation collapses |
+
+---
+
+### Flow 18: Developer Claims Payment
+
+> **Login as: Developer** (after payment is released)
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Navigate to the project | Right column shows "Payment Available" section |
+| 2 | Click **"Claim Payment"** | Payment claimed, success message: "Funds have been transferred to your account" |
+
+---
+
+### Flow 19: Payments Pages
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Click **"Payments"** in sidebar | Navigate to `/payments` — list of projects with payment stats |
+| 2 | Verify 5 stat cards per project | Total Budget, Escrow Deposited, Funds Remaining, Awaiting Payment, Paid |
+| 3 | Verify "Awaiting Payment" and "Paid" columns | Milestones grouped by payment status |
+| 4 | Click project title link | Navigate to `/projects/:id` |
+| 5 | Navigate to `/payments/:id` (payment detail) | Breadcrumb, 4 summary cards, 3 milestone sections |
+| 6 | Click **"View Project"** link in header | Navigate to `/projects/:id` |
+| 7 | Verify milestone sections | "Not Started", "In Progress", "Completed and Paid" |
+
+---
+
+### Flow 20: Profile Management
+
+#### 20.1 Developer Profile
+
+> **Login as: Developer**
+
+**View mode:**
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Click **"Profile"** in sidebar | Profile page loads with developer info |
+| 2 | Verify 72px avatar (or initials fallback) | Avatar displayed |
+| 3 | Verify name, ID hash, star rating | Info displayed |
+| 4 | Verify skills chips, bio, background, info items | All profile data displayed |
+| 5 | Verify **"DAO View"** button | Button visible next to name |
+| 6 | Click **"DAO View"** | Navigate to `/profile/dao` |
+| 7 | Verify reviews list (if any) | Review cards with star ratings |
+
+**Membership NFT Card** (visible when user is a DAO member):
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 8 | Locate the **Membership NFT Card** below the profile card | Card with green gradient hexagonal artwork and "W3S" monogram |
+| 9 | Verify **"Community Member"** title | Title displayed at the top of the card |
+| 10 | Verify **"Verified"** badge | Green dot + "Verified" text |
+| 11 | Verify **Membership ID** | Badge showing `#N` (e.g. `#42`) |
+| 12 | Verify **Join Date** | Calendar icon + formatted date (e.g. "Jan 15, 2026") |
+| 13 | Verify **Blockchain Address** | Full address displayed (e.g. `5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY`) |
+| 14 | Click the **blockchain address** | Address copied to clipboard, "Copied!" feedback shown briefly |
+
+**Edit mode:**
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 8 | Click **"Edit Information"** | Switch to edit mode with form fields |
+| 9 | Edit Name, Bio, Background fields | Inputs accept changes |
+| 10 | Change Role and Proficiency dropdowns | Options selectable |
+| 11 | Edit GitHub Username, Portfolio URL, Location | Inputs accept changes |
+| 12 | Click skill chips to toggle selection | Chips toggle on/off |
+| 13 | Toggle language checkboxes | Checkboxes toggle |
+| 14 | Toggle "Available for Hire" switch | Switch toggles |
+| 15 | Change Work Mode dropdown | "Full Time" / "Part Time" / "Hours per Week" |
+| 16 | If "Hours per Week" selected | Weekly Hours number input appears |
+| 17 | Click upload area for photo | File picker opens (max 2MB) |
+| 18 | Select a photo | Preview shown |
+| 19 | Click **"Save"** | Profile saved, returns to view mode |
+| 20 | Click **"Cancel"** | Changes discarded, returns to view mode |
+
+#### 20.2 Client Profile
+
+> **Login as: Client**
+
+**View mode:**
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Click **"Profile"** in sidebar | Client profile page loads |
+| 2 | Verify avatar, name, company name | Info displayed |
+| 3 | Verify "Client" role badge, department badge | Badges displayed |
+| 4 | Verify description, info items (company, languages, location, website, email) | All data displayed |
+| 5 | Click **"DAO View"** | Navigate to `/profile/dao` |
+
+**Membership NFT Card** (visible when user is a DAO member):
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 6 | Locate the **Membership NFT Card** below the profile card | Card with green gradient hexagonal artwork and "W3S" monogram |
+| 7 | Verify **"Community Member"** title, **"Verified"** badge (green dot) | Both displayed |
+| 8 | Verify **Membership ID** (`#N`), **Join Date**, and **Blockchain Address** | All three fields visible |
+| 9 | Click the **blockchain address** | Address copied to clipboard, "Copied!" feedback shown briefly |
+
+**Edit mode:**
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 10 | Click **"Edit Information"** | Switch to edit mode |
+| 11 | Edit Name, Description, Company, Department, Website, Location | Inputs accept changes |
+| 12 | Toggle language checkboxes | Checkboxes toggle |
+| 13 | Click upload area for photo | File picker opens (max 2MB) |
+| 14 | Click **"Save"** | Profile saved, returns to view mode |
+| 15 | Click **"Cancel"** | Changes discarded, returns to view mode |
+
+---
+
+### Flow 21: Developer Availability (Sidebar Popover)
+
+> **Login as: Developer**
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Click user section at the bottom of sidebar (avatar + name area) | Availability popover opens (516px panel) |
+| 2 | Toggle **"Availability for Hire"** master switch | Immediate API save, switch toggles |
+| 3 | Toggle **"Full Time"** switch | Immediate API save |
+| 4 | Toggle **"Part Time"** switch | Immediate API save |
+| 5 | Toggle **"Hours per Week"** switch | Immediate API save, number input appears |
+| 6 | Enter hours in the number input (1-168) | Input accepted |
+| 7 | Press Enter or click outside the input (blur) | Hours saved to API |
+| 8 | Press **Escape** | Popover closes |
+| 9 | Click outside the popover | Popover closes |
+
+---
+
+### Flow 22: DAO View
+
+> Navigate to `/profile/dao` or click the **"DAO View"** button on any profile page.
+
+**Page header:**
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Navigate to `/profile/dao` (or click "DAO View" on profile) | Page loads (lazy-loaded, may show spinner briefly) |
+| 2 | Verify **back arrow** button (top-left) | Click → navigate to `/profile` |
+| 3 | Verify page title **"DAO View"** | Title displayed |
+| 4 | Verify **blockchain address pill** next to the title | Truncated address shown (e.g. `5Grw...utQY`) |
+| 5 | Verify **live indicator** (green pulsing dot) | Dot pulses, indicating real-time chain connection |
+
+**Card 1 — Chain Explorer:**
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 6 | Locate the **"Chain Explorer"** card | Card displayed with blockchain data |
+| 7 | Verify **Best Block** number | Large number displayed (e.g. `18,452,371`) — updates automatically |
+| 8 | Verify **hexagonal timer** | Hexagonal shape showing seconds since last block (counts up live) |
+| 9 | Verify **Finalized Block** number below best block | Finalized block number displayed |
+| 10 | Verify **block grid** (6×5 matrix) | Color-coded blocks: solid = finalized, highlight = has events, bright = latest, dim = empty |
+| 11 | Verify **recent events** feed (up to 4) | List of recent chain events with names and block numbers |
+| 12 | Wait ~6 seconds | Data auto-refreshes (polling interval) |
+
+**Card 2 — Communities:**
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 13 | Locate the **"Communities"** card | Card displayed with total count badge (e.g. "5 communities") |
+| 14 | Verify community rows (up to 3 shown) | Each row: gradient circle avatar, community name, member count |
+| 15 | Verify **status indicator** per community | Green dot = Active, Blue dot = Pending, Grey dot = Inactive |
+| 16 | If more than 3 communities exist | **"+ N more"** label displayed at the bottom |
+
+**Card 3 — Wallet:**
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 17 | Locate the **"Wallet"** card | Card displayed with balance information |
+| 18 | Verify **total USD balance** (large headline) | Dollar amount displayed (e.g. `$1,234.56`) |
+| 19 | Verify **summary row** below balance | Expandable row showing KSM amount · DUSD amount |
+| 20 | Click the summary row to expand | **Breakdown** section appears: KSM amount/USD value, DUSD amount/USD value, KSM unit price |
+| 21 | Click the **"Buy DUSD"** button | Inline **DusdOnRampFlow** panel opens within the card |
+| 22 | Verify blockchain address at the bottom of the card | Full address displayed |
+
+**Footer:**
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 23 | Click **"Open Kreivo Dashboard"** button at the bottom | Opens `https://kreivo.io` in a new tab |
+
+---
+
+### Flow 23: Projects List Page
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Navigate to `/projects` | Project list with filter dropdown |
+| 2 | Verify **"New Project"** button (client only) | Visible for clients, hidden for developers |
+| 3 | Click **"Filter by State"** dropdown | 10 filter options shown |
+| 4 | Select **"In Progress"** | Only in-progress projects displayed |
+| 5 | Select **"Completed"** | Only completed projects displayed |
+| 6 | Select **"All States"** | All projects shown |
+| 7 | Verify each project card shows | State badge, title, progress bar, pending task count |
+| 8 | Click a project card | Navigate to `/projects/:id` |
+
+---
+
+### Complete Project Lifecycle Summary
+
+```
+CLIENT                          CONSULTANT                      DEVELOPER
+  |                                |                               |
+  |--- 1. Create Proposal -------->|                               |
+  |                                |--- 2. Approve Proposal        |
+  |                                |--- 3. Build Scope             |
+  |<-- 4. Review Scope ------------|    (milestones + budget)       |
+  |--- 5. Accept + Fund Escrow --->|                               |
+  |                                |--- 6. Assign Team ----------->|
+  |                                |                               |--- 7. Work on Milestone
+  |                                |                               |--- 8. Submit for Review
+  |--- 9. Review Milestone --------|------------------------------>|
+  |    (Accept or Reject)          |                               |
+  |                                |                       [If rejected: 7-9 repeat]
+  |                                |                               |
+  |--- 10. Evaluate Team -------->|                                |
+  |    (star ratings)              |                               |
+  |                                |--- 11. Rate Client + Team     |
+  |                                |                               |--- 12. Rate Coordinator
+  |--- 13. Release Payment ------>|                                |
+  |                                |                               |--- 14. Claim Payment
+  |                                |                               |
+  DONE                            DONE                             DONE
+```
+
+---
+
+### Role Summary: Who Can Do What
+
+| Action | Client | Developer | Consultant |
+|--------|:------:|:---------:|:----------:|
+| Register / Login | Yes | Yes | Yes |
+| Create new project | Yes | -- | -- |
+| Approve/Reject proposal | -- | -- | Yes |
+| Build/Revise scope (milestones) | -- | -- | Yes |
+| Review & accept/reject scope | Yes | -- | -- |
+| Fund escrow (bank transfer) | Yes | -- | -- |
+| Assign team | -- | -- | Yes |
+| Submit milestone for review | -- | Yes | Yes |
+| Review milestone (accept/reject) | Yes | -- | -- |
+| Evaluate team (star ratings) | Yes | -- | -- |
+| Rate client + team | -- | -- | Yes |
+| Rate coordinator | -- | Yes | -- |
+| Release payment | Yes | -- | -- |
+| Claim payment | -- | Yes | -- |
+| Toggle availability for hire | -- | Yes | -- |
+| Edit profile | Yes | Yes | Yes |
+| View DAO data | Yes | Yes | Yes |
 
 ---
 

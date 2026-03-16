@@ -32,7 +32,7 @@ export interface VirtoAuthResult {
  */
 export function initializeVirtoSDK(): VirtoSDK {
   try {
-    const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://dev.abako.xyz';
+    const backendUrl = import.meta.env.VITE_API_BASE_URL || 'https://dev.abako.xyz';
     const backendHost = new URL(backendUrl).host;
 
     const sdk = new SDK({
@@ -111,7 +111,7 @@ export async function performWebAuthnLogin(
 
     // Get extrinsic from server
     onProgress?.('Getting extrinsic from server...');
-    const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://dev.abako.xyz';
+    const backendUrl = import.meta.env.VITE_API_BASE_URL || 'https://dev.abako.xyz';
     const response = await fetch(`${backendUrl}/adapter/v1/auth/custom-connect`, {
       method: 'POST',
       headers: {
