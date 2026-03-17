@@ -78,6 +78,7 @@ export async function updateProposal(
   if (data.budget !== undefined) updateData.budget = data.budget;
   if (data.deliveryTime !== undefined) updateData.deliveryTime = data.deliveryTime;
   if (data.deliveryDate !== undefined) updateData.deliveryDate = data.deliveryDate;
+  if (data.clientResponse !== undefined) updateData.clientResponse = data.clientResponse;
 
   const response = await updateProject(projectId, updateData, token);
   return response;

@@ -15,6 +15,8 @@
  *   - ProposalRejected / ScopeRejected: red
  *   - CreationError / Invalid:     red
  *   - WaitingForTeamAssigment:     teal
+ *   - Cancelled:                   gray
+ *   - DisputeOpen:                 red
  */
 
 import { flowProjectState, ProjectState } from '@lib/flowStates';
@@ -41,6 +43,8 @@ const STATE_LABELS: Record<ProjectStateValue, string> = {
   [ProjectState.ProjectInProgress]: 'In Progress',
   [ProjectState.PaymentReleased]: 'Payment Released',
   [ProjectState.Completed]: 'Completed',
+  [ProjectState.Cancelled]: 'Cancelled',
+  [ProjectState.DisputeOpen]: 'Dispute Open',
   [ProjectState.Invalid]: 'Unknown',
 };
 
@@ -71,6 +75,10 @@ const STATE_COLORS: Record<ProjectStateValue, string> = {
     'bg-gray-500/15 text-gray-400 border-gray-500/30',
   [ProjectState.Completed]:
     'bg-gray-500/15 text-gray-400 border-gray-500/30',
+  [ProjectState.Cancelled]:
+    'bg-gray-500/15 text-gray-400 border-gray-500/30',
+  [ProjectState.DisputeOpen]:
+    'bg-red-500/15 text-red-400 border-red-500/30',
   [ProjectState.Invalid]:
     'bg-gray-500/15 text-gray-400 border-gray-500/30',
 };

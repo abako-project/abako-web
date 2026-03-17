@@ -92,6 +92,8 @@ const STATE_GROUP_ORDER: ProjectStateValue[] = [
   ProjectState.Completed,
   ProjectState.CreationError,
   ProjectState.Invalid,
+  ProjectState.Cancelled,
+  ProjectState.DisputeOpen,
 ];
 
 const STATE_GROUP_TITLES: Record<ProjectStateValue, string> = {
@@ -106,6 +108,8 @@ const STATE_GROUP_TITLES: Record<ProjectStateValue, string> = {
   [ProjectState.ProjectInProgress]: 'Projects In Progress',
   [ProjectState.PaymentReleased]: 'Payment Released',
   [ProjectState.Completed]: 'Completed Projects',
+  [ProjectState.Cancelled]: 'Cancelled Projects',
+  [ProjectState.DisputeOpen]: 'Open Disputes',
   [ProjectState.Invalid]: 'Other',
 };
 
@@ -121,6 +125,8 @@ const STATE_GROUP_ICONS: Record<ProjectStateValue, string> = {
   [ProjectState.ProjectInProgress]: 'ri-rocket-line',
   [ProjectState.PaymentReleased]: 'ri-money-dollar-circle-line',
   [ProjectState.Completed]: 'ri-check-double-line',
+  [ProjectState.Cancelled]: 'ri-forbid-line',
+  [ProjectState.DisputeOpen]: 'ri-scales-line',
   [ProjectState.Invalid]: 'ri-question-line',
 };
 

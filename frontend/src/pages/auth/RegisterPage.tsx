@@ -1,14 +1,41 @@
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 
 /**
  * Registration Role Selection Page
  *
  * Figma design: Role selector with two styled cards for Developer and Client.
  * Allows users to choose whether to register as a Developer or Client.
+ *
+ * Accepts optional query params:
+ *   ?reason=no_profile  — shown when wallet login succeeded but no profile exists
+ *   ?wallet=<address>   — pre-selected wallet address (used in child pages)
  */
 export default function RegisterPage() {
+  const [searchParams] = useSearchParams();
+  const reason = searchParams.get('reason');
+  const walletAddress = searchParams.get('wallet');
+
   return (
     <div className="w-full">
+      {reason === 'no_profile' && (
+        <div
+          className="mb-6 p-4"
+          style={{
+            backgroundColor: 'rgba(234, 179, 8, 0.1)',
+            border: '1px solid rgba(234, 179, 8, 0.3)',
+            borderRadius: '12px',
+          }}
+        >
+          <p style={{ fontSize: '14px', color: '#eab308', lineHeight: '1.5' }}>
+            Your wallet is connected but you don't have a profile yet.
+            {walletAddress && (
+              <> Address: <span className="font-mono">{walletAddress.slice(0, 8)}...{walletAddress.slice(-6)}</span>.</>
+            )}{' '}
+            Please select a role to create your account.
+          </p>
+        </div>
+      )}
+
       <div className="mb-8 text-center">
         <h1
           className="font-bold mb-2"

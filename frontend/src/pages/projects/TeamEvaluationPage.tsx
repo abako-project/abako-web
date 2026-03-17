@@ -12,7 +12,7 @@ import { useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useProject } from '@hooks/useProjects';
 import { useVoteMembers, useSubmitVotes } from '@hooks/useVotes';
-import { Button, Spinner } from '@components/ui';
+import { Button, Spinner, ConfirmDialog } from '@components/ui';
 import type { VoteMember } from '@/types/index';
 
 export default function TeamEvaluationPage(): JSX.Element {
@@ -24,6 +24,7 @@ export default function TeamEvaluationPage(): JSX.Element {
 
   const [coordinatorRating, setCoordinatorRating] = useState(0);
   const [memberRatings, setMemberRatings] = useState<Record<string, number>>({});
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
   const project = projectData?.project;
 
@@ -31,7 +32,21 @@ export default function TeamEvaluationPage(): JSX.Element {
     setMemberRatings((prev) => ({ ...prev, [userId]: score }));
   }, []);
 
-  const handleSubmit = useCallback(() => {
+  // Declared before the callbacks that reference it so TypeScript is happy.
+  const allRated =
+    coordinatorRating > 0 &&
+    (voteData?.members ?? []).every(
+      (m) => !m.userId || (memberRatings[m.userId] ?? 0) > 0
+    );
+
+  // Opens the confirmation dialog — actual mutation fires only after the user confirms.
+  const handleRequestSubmit = useCallback(() => {
+    if (!projectId || !allRated) return;
+    setIsConfirmOpen(true);
+  }, [projectId, allRated]);
+
+  // Fires the mutation after the user confirms the release dialog.
+  const handleConfirmedSubmit = useCallback(() => {
     if (!projectId) return;
 
     const votes = (voteData?.members ?? [])
@@ -44,17 +59,16 @@ export default function TeamEvaluationPage(): JSX.Element {
       { projectId, votes, coordinatorRating },
       {
         onSuccess: () => {
+          setIsConfirmOpen(false);
           navigate(`/projects/${projectId}`);
+        },
+        onError: () => {
+          // Keep dialog open on error so the user can retry or cancel.
+          setIsConfirmOpen(false);
         },
       }
     );
   }, [submitVotes, projectId, voteData, memberRatings, coordinatorRating, navigate]);
-
-  const allRated =
-    coordinatorRating > 0 &&
-    (voteData?.members ?? []).every(
-      (m) => !m.userId || (memberRatings[m.userId] ?? 0) > 0
-    );
 
   const isLoading = loadingProject || loadingMembers;
 
@@ -148,11 +162,10 @@ export default function TeamEvaluationPage(): JSX.Element {
           ) : null
         )}
 
-        {/* Submit */}
+        {/* Submit — opens confirmation dialog before firing the mutation */}
         <Button
           variant="primary"
-          onClick={handleSubmit}
-          isLoading={submitVotes.isPending}
+          onClick={handleRequestSubmit}
           disabled={submitVotes.isPending || !allRated}
           className="w-full mt-6"
         >
@@ -171,6 +184,18 @@ export default function TeamEvaluationPage(): JSX.Element {
           </p>
         )}
       </div>
+
+      {/* Payment release confirmation dialog */}
+      <ConfirmDialog
+        isOpen={isConfirmOpen}
+        title="Release Payment"
+        description="Are you sure you want to release this payment? This action cannot be undone. Funds will be transferred to the developer."
+        confirmLabel="Release Payment"
+        confirmVariant="danger"
+        isLoading={submitVotes.isPending}
+        onConfirm={handleConfirmedSubmit}
+        onCancel={() => setIsConfirmOpen(false)}
+      />
     </div>
   );
 }

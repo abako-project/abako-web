@@ -37,7 +37,11 @@ export type ProjectRawState =
   | 'team_assigned'
   | 'completed'
   | 'payment_released'
-  | 'rejected_by_coordinator';
+  | 'rejected_by_coordinator'
+  /** Backend transition not yet implemented; reserved for future use. */
+  | 'cancelled'
+  /** Backend transition not yet implemented; reserved for future use. */
+  | 'dispute_open';
 
 /**
  * The raw `state` field on a milestone/task object from the adapter API.
@@ -45,6 +49,7 @@ export type ProjectRawState =
  */
 export type MilestoneRawState =
   | 'pending'
+  | 'waiting_developer_accept_assignation'
   | 'task_in_progress'
   | 'in_review'
   | 'completed'
@@ -213,6 +218,8 @@ export interface ProposalUpdateData {
   budget?: string | number;
   deliveryTime?: string | number;
   deliveryDate?: string | number;
+  /** Client's response/feedback to a coordinator rejection. */
+  clientResponse?: string;
 }
 
 // ---------------------------------------------------------------------------

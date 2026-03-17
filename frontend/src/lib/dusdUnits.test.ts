@@ -1,4 +1,12 @@
-// @ts-nocheck — Test runner types (vitest/jest) not yet installed in this project.
+import { describe, it, expect, vi } from 'vitest';
+
+// The module-under-test imports DECIMALS from @/api/kreivo/rpc at the top level.
+// We mock the whole module so the constant is available without spinning up the
+// Polkadot/Kreivo RPC stack in the test environment.
+vi.mock('@/api/kreivo/rpc', () => ({
+  DECIMALS: { KSM: 12, DUSD: 3 },
+}));
+
 import { dusdToPlanck, planckToDusd, parseBudget, budgetPlanckToHuman } from './dusdUnits';
 
 describe('dusdToPlanck', () => {

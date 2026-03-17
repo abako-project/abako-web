@@ -57,16 +57,22 @@ export async function getWorkersAvailability(): Promise<Record<string, unknown>>
 }
 
 /**
- * Get the blockchain address for a worker by their email.
+ * Get the blockchain address for a worker by their userId.
  *
- * This function queries the Virto federated server to resolve
- * an email address to a blockchain address.
+ * For email-based users, this queries the Virto federated server to resolve
+ * the email to a blockchain address. For wallet-based users, the userId IS
+ * already the SS58 blockchain address, so we return it directly.
  *
- * @param email - Worker email address (userId)
+ * @param userId - Worker email address or SS58 wallet address
  * @returns Blockchain address
  */
-export async function getWorkerAddress(email: string): Promise<string> {
-  const response = await virtoGetUserAddress(email);
+export async function getWorkerAddress(userId: string): Promise<string> {
+  // Wallet users store their SS58 address as userId (no '@' sign).
+  // Skip the Virto lookup and use the address directly.
+  if (!userId.includes('@')) {
+    return userId;
+  }
+  const response = await virtoGetUserAddress(userId);
   return response.address;
 }
 

@@ -64,6 +64,20 @@ export const ProjectState = {
   /** Project delivered, accepted, voted on, and paid. */
   Completed: 'completed',
 
+  /**
+   * The project was cancelled before completion.
+   * Mapped from raw state 'cancelled'.
+   * Backend endpoints for this transition are not yet implemented.
+   */
+  Cancelled: 'Cancelled',
+
+  /**
+   * A dispute has been opened on the project.
+   * Mapped from raw state 'dispute_open'.
+   * Backend endpoints for this transition are not yet implemented.
+   */
+  DisputeOpen: 'DisputeOpen',
+
   /** Invalid or unrecognized state. */
   Invalid: 'Invalid',
 } as const;
@@ -88,6 +102,14 @@ export const MilestoneState = {
    */
   WaitingDeveloperAssignation: 'WaitingDeveloperAssignation',
 
+  /**
+   * The DAO assigned a developer to the milestone; waiting for the developer
+   * to accept the assignation.
+   * Corresponds to the commented-out state in the backend flow model.
+   * Mapped from raw state 'waiting_developer_accept_assignation'.
+   */
+  WaitingDeveloperAcceptAssignation: 'WaitingDeveloperAcceptAssignation',
+
   /** The developer has accepted the milestone and work has begun. */
   MilestoneInProgress: 'MilestoneInProgress',
 
@@ -100,7 +122,14 @@ export const MilestoneState = {
   /** The milestone work has been completed and accepted by the client. */
   MilestoneCompleted: 'MilestoneCompleted',
 
-  /** The milestone is awaiting payment to the developer. */
+  /**
+   * The milestone is awaiting payment to the developer.
+   * NOTE: This state is reserved for future use. The current backend flow
+   * transitions milestones directly from MilestoneCompleted to Paid without
+   * passing through an intermediate AwaitingPayment state. No raw state
+   * mapping exists for it yet; retaining the value prevents breaking changes
+   * when the backend implements the intermediate payment step.
+   */
   AwaitingPayment: 'AwaitingPayment',
 
   /** The milestone has been paid to the developer. */
@@ -141,6 +170,12 @@ export function flowProjectState(
 
   // Consultant rejected the proposal
   if (project.state === 'rejected_by_coordinator') {
+    // If the consultant has started a new scope draft after reviewing the
+    // client's resubmitted proposal, treat this as ScopingInProgress so
+    // the scope builder can render.
+    if (scope && scope.projectId === project.id) {
+      return ProjectState.ScopingInProgress;
+    }
     return ProjectState.ProposalRejected;
   }
 
@@ -191,6 +226,16 @@ export function flowProjectState(
     return ProjectState.PaymentReleased;
   }
 
+  // Project was cancelled (backend transition not yet implemented)
+  if (project.state === 'cancelled') {
+    return ProjectState.Cancelled;
+  }
+
+  // A dispute has been opened (backend transition not yet implemented)
+  if (project.state === 'dispute_open') {
+    return ProjectState.DisputeOpen;
+  }
+
   return ProjectState.Invalid;
 }
 
@@ -209,6 +254,10 @@ export function flowMilestoneState(milestone: Milestone): MilestoneStateValue {
 
   if (milestone.state === 'pending') {
     return MilestoneState.WaitingDeveloperAssignation;
+  }
+
+  if (milestone.state === 'waiting_developer_accept_assignation') {
+    return MilestoneState.WaitingDeveloperAcceptAssignation;
   }
 
   if (milestone.state === 'task_in_progress') {

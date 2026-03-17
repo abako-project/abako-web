@@ -20,3 +20,5 @@ export { TextArea } from './TextArea';
 export { Combobox } from './Combobox';
 export { CardWidget } from './CardWidget';
 export { AbakoLogo } from './AbakoLogo';
+export { ConfirmDialog } from './ConfirmDialog';
+export type { ConfirmDialogProps } from './ConfirmDialog';

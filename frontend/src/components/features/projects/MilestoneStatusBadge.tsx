@@ -22,6 +22,7 @@ interface MilestoneStatusBadgeProps {
 const STATE_LABELS: Record<MilestoneStateValue, string> = {
   [MilestoneState.CreatingMilestone]: 'Draft',
   [MilestoneState.WaitingDeveloperAssignation]: 'Awaiting Developer',
+  [MilestoneState.WaitingDeveloperAcceptAssignation]: 'Awaiting Developer',
   [MilestoneState.MilestoneInProgress]: 'In Progress',
   [MilestoneState.WaitingClientAcceptSubmission]: 'Awaiting Review',
   [MilestoneState.SubmissionRejectedByClient]: 'Rejected',
@@ -37,6 +38,8 @@ const STATE_COLORS: Record<MilestoneStateValue, string> = {
     'bg-gray-500/20 text-gray-400 border-gray-500/30',
   [MilestoneState.WaitingDeveloperAssignation]:
     'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+  [MilestoneState.WaitingDeveloperAcceptAssignation]:
+    'bg-amber-500/20 text-amber-400 border-amber-500/30',
   [MilestoneState.MilestoneInProgress]:
     'bg-blue-500/20 text-blue-400 border-blue-500/30',
   [MilestoneState.WaitingClientAcceptSubmission]:

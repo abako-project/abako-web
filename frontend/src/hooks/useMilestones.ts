@@ -67,7 +67,8 @@ export function useSubmitMilestone() {
 
   return useMutation<MilestoneActionResponse, Error, SubmitMilestoneInput>({
     mutationFn: async ({ projectId, milestoneId }: SubmitMilestoneInput) => {
-      const token = useAuthStore.getState().token || '';
+      const token = useAuthStore.getState().token;
+      if (!token) throw new Error('Authentication token not found');
       // Note: documentation/links fields are not yet supported by the backend
       // milestone update endpoint. When backend adds support, re-enable the
       // apiUpdateMilestone call here.
@@ -116,7 +117,8 @@ export function useAcceptMilestone() {
       milestoneId,
       comment,
     }: AcceptMilestoneInput) => {
-      const token = useAuthStore.getState().token || '';
+      const token = useAuthStore.getState().token;
+      if (!token) throw new Error('Authentication token not found');
       await acceptMilestoneSubmission(projectId, milestoneId, comment || '', token);
       return {
         projectId,
@@ -163,7 +165,8 @@ export function useRejectMilestone() {
       milestoneId,
       comment,
     }: RejectMilestoneInput) => {
-      const token = useAuthStore.getState().token || '';
+      const token = useAuthStore.getState().token;
+      if (!token) throw new Error('Authentication token not found');
       await rejectMilestoneSubmission(projectId, milestoneId, comment || '', token);
       return {
         projectId,
@@ -203,7 +206,8 @@ export function useUpdateMilestone() {
 
   return useMutation<MilestoneActionResponse, Error, UpdateMilestoneInput>({
     mutationFn: async ({ projectId, milestoneId, data }: UpdateMilestoneInput) => {
-      const token = useAuthStore.getState().token || '';
+      const token = useAuthStore.getState().token;
+      if (!token) throw new Error('Authentication token not found');
       await updateMilestone(projectId, milestoneId, data, token);
       return {
         projectId,
@@ -244,7 +248,8 @@ export function useDestroyMilestone() {
 
   return useMutation<MilestoneActionResponse, Error, DestroyMilestoneInput>({
     mutationFn: async ({ projectId, milestoneId }: DestroyMilestoneInput) => {
-      const token = useAuthStore.getState().token || '';
+      const token = useAuthStore.getState().token;
+      if (!token) throw new Error('Authentication token not found');
       await destroyMilestone(projectId, milestoneId, token);
       return {
         projectId,

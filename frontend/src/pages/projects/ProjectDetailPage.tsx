@@ -16,10 +16,10 @@
 
 import { useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useProject } from '@hooks/useProjects';
+import { useProject, useUpdateProject } from '@hooks/useProjects';
 import { useAuthStore } from '@stores/authStore';
 import { flowProjectState, ProjectState } from '@lib/flowStates';
-import { Spinner } from '@components/ui';
+import { Button, Spinner } from '@components/ui';
 import { ProjectStateBadge } from '@components/shared/ProjectStateBadge';
 import { ProjectActions } from '@components/features/projects/ProjectActions';
 import { ScopeBuilder } from '@components/features/projects/ScopeBuilder';
@@ -36,6 +36,11 @@ export default function ProjectDetailPage() {
   const [showScopeBuilder, setShowScopeBuilder] = useState(false);
   const [activeTab, setActiveTab] = useState<TabValue>('details');
   const [scope, setScope] = useState<ScopeSession | undefined>(undefined);
+  const [isEditingProposal, setIsEditingProposal] = useState(false);
+
+  const handleToggleEditProposal = useCallback(() => {
+    setIsEditingProposal((prev) => !prev);
+  }, []);
 
   const handleScopeBuilderShow = useCallback(() => {
     setShowScopeBuilder(true);
@@ -139,13 +144,27 @@ export default function ProjectDetailPage() {
           {/* Details Tab Content */}
           {activeTab === 'details' && (
             <>
-              {/* Project Scope / Description */}
-              <ProjectScopeInfo
-                project={project}
-                allBudgets={allBudgets}
-                allDeliveryTimes={allDeliveryTimes}
-                allProjectTypes={allProjectTypes}
-              />
+              {/* Project Scope / Description — editable when rejected */}
+              {isEditingProposal ? (
+                <ProjectScopeEdit
+                  project={project}
+                  allBudgets={allBudgets}
+                  allDeliveryTimes={allDeliveryTimes}
+                  allProjectTypes={allProjectTypes}
+                  onSaved={() => {
+                    setIsEditingProposal(false);
+                    void refetch();
+                  }}
+                  onCancel={() => setIsEditingProposal(false)}
+                />
+              ) : (
+                <ProjectScopeInfo
+                  project={project}
+                  allBudgets={allBudgets}
+                  allDeliveryTimes={allDeliveryTimes}
+                  allProjectTypes={allProjectTypes}
+                />
+              )}
 
               {/* Scope Builder (shown inline when active) */}
               {canShowScopeBuilder && showScopeBuilder && (
@@ -188,6 +207,12 @@ export default function ProjectDetailPage() {
                 canShowScopeBuilder ? handleScopeBuilderShow : undefined
               }
               onApproveProposal={handleApproveProposal}
+              onEditProposal={
+                projectState === ProjectState.ProposalRejected
+                  ? handleToggleEditProposal
+                  : undefined
+              }
+              isEditingProposal={isEditingProposal}
             />
           )}
         </div>
@@ -444,6 +469,265 @@ function ProjectScopeInfo({
             ))}
           </ul>
         </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ProjectScopeEdit — Inline edit form for rejected proposals
+// ---------------------------------------------------------------------------
+
+const INPUT_CLS =
+  'flex h-10 w-full rounded-md border border-[var(--base-border,#3d3d3d)] bg-[var(--base-surface-1,#141414)] px-3 py-2 text-sm text-[var(--text-dark-primary,#f5f5f5)] placeholder:text-[var(--text-dark-secondary,rgba(255,255,255,0.7))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--state-brand-active,#36d399)]';
+
+const TEXTAREA_CLS = `${INPUT_CLS} min-h-[120px] resize-y`;
+
+const RADIO_CLS =
+  'h-4 w-4 cursor-pointer accent-[var(--state-brand-active,#36d399)]';
+
+function ProjectScopeEdit({
+  project,
+  allBudgets,
+  allDeliveryTimes,
+  allProjectTypes,
+  onSaved,
+  onCancel,
+}: {
+  project: Project;
+  allBudgets: Array<{ id: number; description: string }>;
+  allDeliveryTimes: Array<{ id: number; description: string }>;
+  allProjectTypes: Array<{ id: number; description: string }>;
+  onSaved: () => void;
+  onCancel: () => void;
+}) {
+  const updateMutation = useUpdateProject();
+
+  const [description, setDescription] = useState(project.description ?? '');
+  const [summary, setSummary] = useState(project.summary ?? '');
+  const [budget, setBudget] = useState(
+    project.budget !== undefined ? String(project.budget) : '0'
+  );
+  const [deliveryTime, setDeliveryTime] = useState(
+    project.deliveryTime !== undefined ? String(project.deliveryTime) : '0'
+  );
+  const [projectType, setProjectType] = useState(
+    project.projectType !== undefined ? String(project.projectType) : '0'
+  );
+  const [url, setUrl] = useState(project.url ?? '');
+
+  const handleSave = useCallback(() => {
+    updateMutation.mutate(
+      {
+        id: project.id,
+        data: {
+          description,
+          summary,
+          budget: Number(budget),
+          deliveryTime: Number(deliveryTime),
+          projectType: Number(projectType),
+          url: url || undefined,
+        },
+      },
+      { onSuccess: onSaved }
+    );
+  }, [
+    updateMutation,
+    project.id,
+    description,
+    summary,
+    budget,
+    deliveryTime,
+    projectType,
+    url,
+    onSaved,
+  ]);
+
+  return (
+    <div className="rounded-[var(--radi-6,12px)] border-2 border-[var(--state-brand-active,#36d399)]/40 bg-[var(--base-surface-2,#231f1f)] p-[var(--spacing-10,24px)]">
+      <div className="flex items-center justify-between mb-6">
+        <h3
+          className="text-xl font-semibold text-[var(--text-dark-primary,#f5f5f5)]"
+          style={{ fontFamily: 'Inter' }}
+        >
+          Edit Proposal
+        </h3>
+        <span className="text-xs text-[var(--state-brand-active,#36d399)] bg-[var(--state-brand-active,#36d399)]/10 px-2 py-1 rounded">
+          Editing
+        </span>
+      </div>
+
+      <div className="space-y-5">
+        {/* Summary */}
+        <div>
+          <label
+            htmlFor="edit-summary"
+            className="block text-sm font-medium text-[var(--text-dark-secondary,rgba(255,255,255,0.7))] mb-1"
+          >
+            Summary
+          </label>
+          <input
+            id="edit-summary"
+            type="text"
+            value={summary}
+            onChange={(e) => setSummary(e.target.value)}
+            className={INPUT_CLS}
+            maxLength={280}
+          />
+        </div>
+
+        {/* Description */}
+        <div>
+          <label
+            htmlFor="edit-description"
+            className="block text-sm font-medium text-[var(--text-dark-secondary,rgba(255,255,255,0.7))] mb-1"
+          >
+            Description
+          </label>
+          <textarea
+            id="edit-description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className={TEXTAREA_CLS}
+            maxLength={5000}
+          />
+        </div>
+
+        {/* Budget */}
+        <fieldset>
+          <legend className="text-sm font-medium text-[var(--text-dark-secondary,rgba(255,255,255,0.7))] mb-2">
+            Budget
+          </legend>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {allBudgets.map((b, idx) => (
+              <label
+                key={idx}
+                className={`flex items-center gap-2 rounded-md border px-3 py-2 cursor-pointer text-sm transition-colors ${
+                  budget === String(idx)
+                    ? 'border-[var(--state-brand-active,#36d399)] bg-[var(--state-brand-active,#36d399)]/10 text-[var(--text-dark-primary,#f5f5f5)]'
+                    : 'border-[var(--base-border,#3d3d3d)] text-[var(--text-dark-secondary,rgba(255,255,255,0.7))] hover:border-[#555]'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="edit-budget"
+                  value={idx}
+                  checked={budget === String(idx)}
+                  onChange={(e) => setBudget(e.target.value)}
+                  className={RADIO_CLS}
+                />
+                {b.description}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        {/* Delivery Time */}
+        <fieldset>
+          <legend className="text-sm font-medium text-[var(--text-dark-secondary,rgba(255,255,255,0.7))] mb-2">
+            Delivery Time
+          </legend>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {allDeliveryTimes.map((dt, idx) => (
+              <label
+                key={idx}
+                className={`flex items-center gap-2 rounded-md border px-3 py-2 cursor-pointer text-sm transition-colors ${
+                  deliveryTime === String(idx)
+                    ? 'border-[var(--state-brand-active,#36d399)] bg-[var(--state-brand-active,#36d399)]/10 text-[var(--text-dark-primary,#f5f5f5)]'
+                    : 'border-[var(--base-border,#3d3d3d)] text-[var(--text-dark-secondary,rgba(255,255,255,0.7))] hover:border-[#555]'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="edit-delivery"
+                  value={idx}
+                  checked={deliveryTime === String(idx)}
+                  onChange={(e) => setDeliveryTime(e.target.value)}
+                  className={RADIO_CLS}
+                />
+                {dt.description}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        {/* Project Type */}
+        <fieldset>
+          <legend className="text-sm font-medium text-[var(--text-dark-secondary,rgba(255,255,255,0.7))] mb-2">
+            Project Type
+          </legend>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {allProjectTypes.map((pt, idx) => (
+              <label
+                key={idx}
+                className={`flex items-center gap-2 rounded-md border px-3 py-2 cursor-pointer text-sm transition-colors ${
+                  projectType === String(idx)
+                    ? 'border-[var(--state-brand-active,#36d399)] bg-[var(--state-brand-active,#36d399)]/10 text-[var(--text-dark-primary,#f5f5f5)]'
+                    : 'border-[var(--base-border,#3d3d3d)] text-[var(--text-dark-secondary,rgba(255,255,255,0.7))] hover:border-[#555]'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="edit-type"
+                  value={idx}
+                  checked={projectType === String(idx)}
+                  onChange={(e) => setProjectType(e.target.value)}
+                  className={RADIO_CLS}
+                />
+                {pt.description}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        {/* URL */}
+        <div>
+          <label
+            htmlFor="edit-url"
+            className="block text-sm font-medium text-[var(--text-dark-secondary,rgba(255,255,255,0.7))] mb-1"
+          >
+            Project URL (optional)
+          </label>
+          <input
+            id="edit-url"
+            type="url"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            className={INPUT_CLS}
+            placeholder="https://..."
+          />
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center gap-3 mt-6 pt-4 border-t border-[var(--base-border,#3d3d3d)]">
+        <Button
+          variant="primary"
+          disabled={!description.trim() || updateMutation.isPending}
+          onClick={handleSave}
+          className="flex-1 gap-2"
+        >
+          {updateMutation.isPending ? (
+            <>
+              <i className="ri-loader-4-line animate-spin" aria-hidden="true" />
+              Saving...
+            </>
+          ) : (
+            <>
+              <i className="ri-save-line" aria-hidden="true" />
+              Save &amp; Request Review
+            </>
+          )}
+        </Button>
+        <Button variant="outline" onClick={onCancel} disabled={updateMutation.isPending}>
+          Cancel
+        </Button>
+      </div>
+
+      {updateMutation.isError && (
+        <p className="mt-2 text-xs text-red-400">
+          Failed to save changes. Please try again.
+        </p>
       )}
     </div>
   );

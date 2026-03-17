@@ -78,23 +78,36 @@ export async function getProject(projectId: string): Promise<Project> {
     getDevelopers(),
   ]);
 
-  // 3. Fetch milestones if project is created
+  // 3. Fetch milestones if project is created AND scope has been proposed.
+  // Projects in early states (deployed, rejected_by_coordinator) have no scope
+  // on the blockchain yet. Calling get_all_tasks would fail with ScopeNotDefined
+  // and generate error noise in the backend logs.
   let milestones: Array<Record<string, unknown>> = [];
-  if (project.creationStatus === 'created') {
-    const response = await getAllTasks(projectId);
-    const allMilestones = (response.milestones || []) as Array<Record<string, unknown>>;
+  const statesWithScope = [
+    'scope_proposed', 'scope_rejected', 'scope_accepted',
+    'team_assigned', 'completed', 'payment_released',
+  ];
+  if (project.creationStatus === 'created' && statesWithScope.includes(project.state as string)) {
+    try {
+      const response = await getAllTasks(projectId);
+      const allMilestones = (response.milestones || []) as Array<Record<string, unknown>>;
 
-    // Filter milestones to only those that exist in the contract's current scope.
-    // The backend may accumulate stale milestones from previous scope proposals.
-    const contractTasks = (response as Record<string, unknown>).response as Array<{ id: number }> | undefined;
-    if (contractTasks && contractTasks.length > 0) {
-      const contractTaskIds = new Set(contractTasks.map((t) => Number(t.id)));
-      milestones = allMilestones.filter((m) => contractTaskIds.has(Number(m.id)));
-    } else {
-      milestones = allMilestones;
+      // Filter milestones to only those that exist in the contract's current scope.
+      // The backend may accumulate stale milestones from previous scope proposals.
+      const contractTasks = (response as Record<string, unknown>).response as Array<{ id: number }> | undefined;
+      if (contractTasks && contractTasks.length > 0) {
+        const contractTaskIds = new Set(contractTasks.map((t) => Number(t.id)));
+        milestones = allMilestones.filter((m) => contractTaskIds.has(Number(m.id)));
+      } else {
+        milestones = allMilestones;
+      }
+
+      milestones.forEach(cleanMilestone);
+    } catch {
+      // Fallback: if the call fails for any reason, return empty milestones
+      // rather than crashing the entire page.
+      milestones = [];
     }
-
-    milestones.forEach(cleanMilestone);
   }
 
   // 4. Clean up project fields

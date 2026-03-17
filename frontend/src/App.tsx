@@ -10,6 +10,7 @@ import { Spinner } from '@components/ui/Spinner';
 import LoginPage from '@pages/auth/LoginPage';
 import ClientLoginPage from '@pages/auth/ClientLoginPage';
 import DeveloperLoginPage from '@pages/auth/DeveloperLoginPage';
+import WalletLoginPage from '@pages/auth/WalletLoginPage';
 import RegisterPage from '@pages/auth/RegisterPage';
 import ClientRegisterPage from '@pages/auth/ClientRegisterPage';
 import DeveloperRegisterPage from '@pages/auth/DeveloperRegisterPage';
@@ -59,6 +60,7 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/login/client" element={<ClientLoginPage />} />
           <Route path="/login/developer" element={<DeveloperLoginPage />} />
+          <Route path="/login/wallet" element={<WalletLoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/register/client" element={<ClientRegisterPage />} />
           <Route path="/register/developer" element={<DeveloperRegisterPage />} />

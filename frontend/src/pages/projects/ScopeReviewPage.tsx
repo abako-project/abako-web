@@ -29,6 +29,9 @@ import {
 } from '@components/features/payments/EscrowPaymentModal';
 import { cn } from '@lib/cn';
 import { budgetPlanckToHuman } from '@lib/dusdUnits';
+import { isProjectClient } from '@lib/permissions';
+import { flowProjectState, ProjectState } from '@lib/flowStates';
+import { ProjectStateBadge } from '@components/shared/ProjectStateBadge';
 import type { Milestone, Project } from '@/types/index';
 
 // ---------------------------------------------------------------------------
@@ -142,6 +145,8 @@ export default function ScopeReviewPage(): React.JSX.Element {
     void navigator.clipboard.writeText(email).then(() => {
       setCopiedEmail(true);
       setTimeout(() => setCopiedEmail(false), 2000);
+    }).catch(() => {
+      // silent fail — clipboard not available
     });
   }
 
@@ -246,6 +251,62 @@ export default function ScopeReviewPage(): React.JSX.Element {
   }
 
   const { project, allBudgets } = data;
+
+  // ---------------------------------------------------------------------------
+  // Role guard — only the project's client may access this page.
+  // ---------------------------------------------------------------------------
+  if (!isProjectClient(user, project.clientId)) {
+    return (
+      <div className="px-8 py-10 lg:px-14">
+        <div className="mx-auto max-w-2xl rounded-[12px] border border-[#3d3d3d] bg-[#231f1f] p-8 text-center">
+          <i className="ri-lock-line mb-3 block text-4xl text-[rgba(255,255,255,0.4)]" />
+          <h2 className="mb-2 text-xl font-bold text-[#f5f5f5]">
+            Access Restricted
+          </h2>
+          <p className="mb-4 text-[rgba(255,255,255,0.7)]">
+            Only the client who owns this project can review its scope.
+          </p>
+          <Link
+            to={`/projects/${project.id}`}
+            className="inline-flex items-center gap-1.5 rounded-[12px] border border-[#3d3d3d] px-4 py-2 text-sm text-[rgba(255,255,255,0.7)] transition-colors hover:border-[#555] hover:text-[#f5f5f5]"
+          >
+            <i className="ri-arrow-left-line" aria-hidden="true" />
+            Back to Project
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // State guard — scope review is only valid in ScopeValidationNeeded state.
+  // ---------------------------------------------------------------------------
+  if (flowProjectState(project) !== ProjectState.ScopeValidationNeeded) {
+    return (
+      <div className="px-8 py-10 lg:px-14">
+        <div className="mx-auto max-w-2xl rounded-[12px] border border-[#3d3d3d] bg-[#231f1f] p-8 text-center">
+          <i className="ri-information-line mb-3 block text-4xl text-yellow-400" />
+          <h2 className="mb-2 text-xl font-bold text-[#f5f5f5]">
+            Scope Not Available for Review
+          </h2>
+          <p className="mb-4 text-[rgba(255,255,255,0.7)]">
+            This scope is not currently available for review.
+          </p>
+          <div className="mb-6 flex justify-center">
+            <ProjectStateBadge project={project} />
+          </div>
+          <Link
+            to={`/projects/${project.id}`}
+            className="inline-flex items-center gap-1.5 rounded-[12px] border border-[#3d3d3d] px-4 py-2 text-sm text-[rgba(255,255,255,0.7)] transition-colors hover:border-[#555] hover:text-[#f5f5f5]"
+          >
+            <i className="ri-arrow-left-line" aria-hidden="true" />
+            Back to Project
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   const isMutating = isAccepting || isRejecting;
 
   const totalCost = project.milestones.reduce(
@@ -306,8 +367,10 @@ export default function ScopeReviewPage(): React.JSX.Element {
             <button
               type="button"
               onClick={() => setDecision(decision === 'accept' ? null : 'accept')}
+              disabled={isMutating}
               className={cn(
                 'inline-flex items-center gap-2 rounded-[12px] border px-4 py-2 text-sm font-medium transition-all',
+                'disabled:pointer-events-none disabled:opacity-50',
                 decision === 'accept'
                   ? 'border-[#36d399] bg-[#36d399]/10 text-[#36d399]'
                   : 'border-[#3d3d3d] text-[rgba(255,255,255,0.7)] hover:border-[#555] hover:text-[#f5f5f5]'
@@ -322,8 +385,10 @@ export default function ScopeReviewPage(): React.JSX.Element {
             <button
               type="button"
               onClick={() => setDecision(decision === 'reject' ? null : 'reject')}
+              disabled={isMutating}
               className={cn(
                 'inline-flex items-center gap-2 rounded-[12px] border px-4 py-2 text-sm font-medium transition-all',
+                'disabled:pointer-events-none disabled:opacity-50',
                 decision === 'reject'
                   ? 'border-red-500 bg-red-500/10 text-red-400'
                   : 'border-[#3d3d3d] text-[rgba(255,255,255,0.7)] hover:border-[#555] hover:text-[#f5f5f5]'

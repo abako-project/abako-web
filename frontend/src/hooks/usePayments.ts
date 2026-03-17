@@ -22,6 +22,7 @@ import type {
 import { DELIVERY_TIMES } from '@/types';
 import { getProjectsIndex, getProject, projectCompleted } from '@/services';
 import { useAuthStore } from '@/stores/authStore';
+import { DEFAULT_ADVANCE_PAYMENT_PERCENTAGE } from '@lib/constants';
 
 // ---------------------------------------------------------------------------
 // Query keys
@@ -62,9 +63,10 @@ export function usePayments() {
         description: d,
       }));
 
+      // TODO: Make advancePaymentPercentage user-configurable per project.
       return {
         projects,
-        advancePaymentPercentage: 25,
+        advancePaymentPercentage: DEFAULT_ADVANCE_PAYMENT_PERCENTAGE,
         allDeliveryTimes,
       };
     },
@@ -98,9 +100,10 @@ export function usePayment(projectId: string | undefined) {
         description: d,
       }));
 
+      // TODO: Make advancePaymentPercentage user-configurable per project.
       return {
         project,
-        advancePaymentPercentage: 25,
+        advancePaymentPercentage: DEFAULT_ADVANCE_PAYMENT_PERCENTAGE,
         allDeliveryTimes,
       };
     },

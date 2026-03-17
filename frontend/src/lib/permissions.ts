@@ -32,12 +32,12 @@ export function isDeveloper(user: User | null): boolean {
 
 /** Check if the user is a specific client (by clientId). */
 export function isClientSelf(user: User | null, clientId: string): boolean {
-  return isClient(user) && user?.clientId === clientId;
+  return isClient(user) && String(user?.clientId) === String(clientId);
 }
 
 /** Check if the user is a specific developer (by developerId). */
 export function isDeveloperSelf(user: User | null, developerId: string): boolean {
-  return isDeveloper(user) && user?.developerId === developerId;
+  return isDeveloper(user) && String(user?.developerId) === String(developerId);
 }
 
 // ---------------------------------------------------------------------------
@@ -46,19 +46,19 @@ export function isDeveloperSelf(user: User | null, developerId: string): boolean
 
 /** Check if the user is the client who owns the project. */
 export function isProjectClient(user: User | null, projectClientId: string): boolean {
-  return isClient(user) && user?.clientId === projectClientId;
+  return isClient(user) && String(user?.clientId) === String(projectClientId);
 }
 
 /** Check if the user is the consultant assigned to the project. */
 export function isProjectConsultant(user: User | null, projectConsultantId: string | undefined): boolean {
   if (!projectConsultantId) return false;
-  return isDeveloper(user) && user?.developerId === projectConsultantId;
+  return isDeveloper(user) && String(user?.developerId) === String(projectConsultantId);
 }
 
 /** Check if the user is the developer assigned to a milestone. */
 export function isMilestoneDeveloper(user: User | null, milestoneDeveloperId: string | undefined): boolean {
   if (!milestoneDeveloperId) return false;
-  return isDeveloper(user) && user?.developerId === milestoneDeveloperId;
+  return isDeveloper(user) && String(user?.developerId) === String(milestoneDeveloperId);
 }
 
 // ---------------------------------------------------------------------------

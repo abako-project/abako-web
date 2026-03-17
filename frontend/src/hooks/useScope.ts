@@ -20,6 +20,8 @@ import {
 import { getAllTasks, updateProject } from '@/api/adapter';
 import { useAuthStore } from '@/stores/authStore';
 import { dusdToPlanck, parseBudget, planckToDusd } from '@lib/dusdUnits';
+import { computeScopeHash } from '@lib/scopeHash';
+import { DEFAULT_ADVANCE_PAYMENT_PERCENTAGE } from '@lib/constants';
 
 // ---------------------------------------------------------------------------
 // Response types
@@ -59,7 +61,8 @@ export function useSubmitScope() {
       milestones,
       consultantComment,
     }: SubmitScopeInput) => {
-      const token = useAuthStore.getState().token || '';
+      const token = useAuthStore.getState().token;
+      if (!token) throw new Error('Authentication token not found');
 
       // Convert milestone budgets from human-readable DUSD to planck.
       // The adapter stores these values and uses them directly for on-chain escrow.
@@ -72,11 +75,23 @@ export function useSubmitScope() {
 
       const milestonesData = milestonesWithPlanckBudgets as unknown as Record<string, unknown>[];
 
+      // Compute a deterministic SHA-256 hash of the milestone data to use as
+      // on-chain proof of the scope document. Replaces the previous hardcoded
+      // placeholder so the hash actually reflects the agreed milestones.
+      // Map null budget values to undefined so the type matches computeScopeHash's
+      // parameter shape (which does not accept null).
+      const documentHash = await computeScopeHash(
+        milestones.map((m) => ({
+          ...m,
+          budget: m.budget ?? undefined,
+        }))
+      );
+
       await submitScope(
         projectId,
         milestonesData,
-        100, // advancePaymentPercentage — deposit 100% to escrow
-        '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef', // documentHash
+        DEFAULT_ADVANCE_PAYMENT_PERCENTAGE,
+        documentHash,
         consultantComment || '',
         token
       );
@@ -123,7 +138,8 @@ export function useAcceptScope() {
       projectId,
       clientResponse,
     }: AcceptScopeInput) => {
-      const token = useAuthStore.getState().token || '';
+      const token = useAuthStore.getState().token;
+      if (!token) throw new Error('Authentication token not found');
 
       // Fetch task IDs from the contract (not MongoDB milestones which may include stale entries)
       const tasksData = await getAllTasks(projectId);
@@ -136,8 +152,12 @@ export function useAcceptScope() {
         throw new Error('No tasks found in the contract to approve');
       }
 
-      // Sync project.budget with the actual sum of milestone budgets so the
-      // backend's approve_scope sends the correct value to the contract.
+      // Execute the on-chain accept first. Budget sync must happen AFTER the
+      // on-chain operation succeeds so a failed acceptScope does not leave the
+      // project.budget out of sync.
+      const result = await acceptScope(projectId, taskIds, clientResponse || '', token);
+
+      // Sync project.budget with the actual sum of milestone budgets.
       // Milestone budgets are stored in planck; project.budget is human DUSD.
       const milestones = (tasksData as Record<string, unknown>).milestones as
         Array<{ budget?: string | number | null }> | undefined;
@@ -149,8 +169,6 @@ export function useAcceptScope() {
         const totalHumanDusd = planckToDusd(totalPlanck);
         await updateProject(projectId, { budget: totalHumanDusd }, token);
       }
-
-      const result = await acceptScope(projectId, taskIds, clientResponse || '', token);
 
       // Try to capture paymentId from the approve_scope response.
       // The adapter may include a paymentId field for on-chain status querying.
@@ -204,7 +222,8 @@ export function useRejectScope() {
       projectId,
       clientResponse,
     }: RejectScopeInput) => {
-      const token = useAuthStore.getState().token || '';
+      const token = useAuthStore.getState().token;
+      if (!token) throw new Error('Authentication token not found');
       await rejectScope(projectId, clientResponse || '', token);
       return {
         projectId,
