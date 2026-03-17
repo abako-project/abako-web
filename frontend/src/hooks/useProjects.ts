@@ -21,6 +21,12 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import {
+  PROPOSAL_REJECTED,
+  COORDINATOR_ASSIGNED,
+  TEAM_ASSIGNED,
+  CALENDAR_CONTRACT_SET,
+} from '@/constants/messages';
+import {
   getProjectsIndex,
   getProject,
   createProposal,
@@ -375,7 +381,7 @@ export function useRejectProposal() {
 
       return {
         projectId,
-        message: 'Proposal rejected successfully',
+        message: PROPOSAL_REJECTED,
       };
     },
     onSuccess: (_data, variables) => {
@@ -423,7 +429,7 @@ export function useAssignCoordinator() {
 
       return {
         contractAddress,
-        message: 'Coordinator assigned successfully',
+        message: COORDINATOR_ASSIGNED,
       };
     },
     onSuccess: (_data, variables) => {
@@ -472,7 +478,7 @@ export function useAssignTeam() {
 
       return {
         contractAddress,
-        message: 'Team assigned successfully',
+        message: TEAM_ASSIGNED,
       };
     },
     onSuccess: (_data, variables) => {
@@ -528,7 +534,7 @@ export function useSetCalendarContract() {
 
       return {
         contractAddress,
-        message: 'Calendar contract set successfully',
+        message: CALENDAR_CONTRACT_SET,
       };
     },
     onSuccess: (_data, variables) => {

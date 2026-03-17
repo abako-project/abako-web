@@ -13,6 +13,11 @@ import {
   useMutation,
   useQueryClient,
 } from '@tanstack/react-query';
+import {
+  VOTES_SUBMITTED,
+  COORDINATOR_RATINGS_SUBMITTED,
+  DEVELOPER_RATING_SUBMITTED,
+} from '@/constants/messages';
 import { projectKeys } from '@hooks/useProjects';
 import { paymentKeys } from '@hooks/usePayments';
 import { ratingKeys } from '@hooks/useRatings';
@@ -135,7 +140,7 @@ export function useSubmitVotes() {
 
       return {
         projectId,
-        message: 'Votes submitted successfully',
+        message: VOTES_SUBMITTED,
       };
     },
     onSuccess: (_data, variables) => {
@@ -173,7 +178,7 @@ export function useSubmitCoordinatorRatings() {
 
       return {
         projectId,
-        message: 'Coordinator ratings submitted successfully',
+        message: COORDINATOR_RATINGS_SUBMITTED,
       };
     },
     onSuccess: (_data, variables) => {
@@ -210,7 +215,7 @@ export function useSubmitDeveloperRating() {
 
       return {
         projectId,
-        message: 'Developer rating submitted successfully',
+        message: DEVELOPER_RATING_SUBMITTED,
       };
     },
     onSuccess: (_data, variables) => {

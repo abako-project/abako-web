@@ -16,6 +16,7 @@ import {
   useMutation,
   useQueryClient,
 } from '@tanstack/react-query';
+import { PROFILE_IMAGE_UPLOADED } from '@/constants/messages';
 import {
   getClientById,
   updateClient,
@@ -406,7 +407,7 @@ export function useUploadProfileImage() {
       }
 
       return {
-        message: 'Profile image uploaded successfully',
+        message: PROFILE_IMAGE_UPLOADED,
       };
     },
     onSuccess: (_data, variables) => {

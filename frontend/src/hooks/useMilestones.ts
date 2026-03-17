@@ -9,6 +9,13 @@
  */
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  MILESTONE_SUBMITTED,
+  MILESTONE_ACCEPTED,
+  MILESTONE_REJECTED,
+  MILESTONE_UPDATED,
+  MILESTONE_DELETED,
+} from '@/constants/messages';
 import { projectKeys } from '@hooks/useProjects';
 import {
   submitMilestoneForReview,
@@ -76,7 +83,7 @@ export function useSubmitMilestone() {
       return {
         projectId,
         milestoneId,
-        message: 'Milestone submitted successfully',
+        message: MILESTONE_SUBMITTED,
       };
     },
     onSuccess: (_data, variables) => {
@@ -123,7 +130,7 @@ export function useAcceptMilestone() {
       return {
         projectId,
         milestoneId,
-        message: 'Milestone accepted successfully',
+        message: MILESTONE_ACCEPTED,
       };
     },
     onSuccess: (_data, variables) => {
@@ -171,7 +178,7 @@ export function useRejectMilestone() {
       return {
         projectId,
         milestoneId,
-        message: 'Milestone rejected successfully',
+        message: MILESTONE_REJECTED,
       };
     },
     onSuccess: (_data, variables) => {
@@ -212,7 +219,7 @@ export function useUpdateMilestone() {
       return {
         projectId,
         milestoneId,
-        message: 'Milestone updated successfully',
+        message: MILESTONE_UPDATED,
       };
     },
     onSuccess: (_data, variables) => {
@@ -254,7 +261,7 @@ export function useDestroyMilestone() {
       return {
         projectId,
         milestoneId,
-        message: 'Milestone deleted successfully',
+        message: MILESTONE_DELETED,
       };
     },
     onSuccess: (_data, variables) => {

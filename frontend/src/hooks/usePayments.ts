@@ -13,6 +13,7 @@ import {
   useMutation,
   useQueryClient,
 } from '@tanstack/react-query';
+import { PAYMENT_RELEASED } from '@/constants/messages';
 import { projectKeys } from '@hooks/useProjects';
 import type {
   PaymentsResponse,
@@ -140,7 +141,7 @@ export function useReleasePayment() {
       await projectCompleted(projectId, rating, coordinatorRating, token);
       return {
         projectId,
-        message: 'Payment released successfully',
+        message: PAYMENT_RELEASED,
       };
     },
     onSuccess: (_data, variables) => {
