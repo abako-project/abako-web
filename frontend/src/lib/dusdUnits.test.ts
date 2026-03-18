@@ -52,6 +52,10 @@ describe('planckToDusd', () => {
     expect(planckToDusd(1)).toBe(0.001);
   });
 
+  it('handles negative planck amounts', () => {
+    expect(planckToDusd(-15000000)).toBe(-15000);
+  });
+
   it('handles zero', () => {
     expect(planckToDusd(0)).toBe(0);
   });
@@ -62,6 +66,10 @@ describe('planckToDusd', () => {
 
   it('returns 0 for Infinity', () => {
     expect(planckToDusd(Infinity)).toBe(0);
+  });
+
+  it('returns 0 for -Infinity', () => {
+    expect(planckToDusd(-Infinity)).toBe(0);
   });
 });
 
@@ -76,6 +84,10 @@ describe('parseBudget', () => {
 
   it('parses float string budget', () => {
     expect(parseBudget('15000.5')).toBe(15000.5);
+  });
+
+  it('trims whitespace strings before parsing', () => {
+    expect(parseBudget('   420.5   ')).toBe(420.5);
   });
 
   it('returns 0 for null', () => {
@@ -114,6 +126,10 @@ describe('budgetPlanckToHuman', () => {
 
   it('returns 0 for undefined', () => {
     expect(budgetPlanckToHuman(undefined)).toBe(0);
+  });
+
+  it('returns 0 for invalid strings', () => {
+    expect(budgetPlanckToHuman('not-a-number')).toBe(0);
   });
 
   it('round-trips with dusdToPlanck', () => {
