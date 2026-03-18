@@ -11,6 +11,7 @@ import {
 } from '@/api/adapter';
 import { getUserAddress } from '@/api/virto';
 import type { Developer } from '@/types';
+import { ERRORS } from '@/constants/messages';
 
 // Types
 
@@ -30,7 +31,7 @@ interface TeamMember {
 export const developerConnect = async (email: string): Promise<DeveloperConnectResponse> => {
   try {
     if (!email) {
-      throw new Error('El campo email es obligatorio para loguear un developer.');
+      throw new Error(ERRORS.FIELD_REQUIRED('email', 'logging in developer'));
     }
 
     const response = await customConnect({ userId: email });
@@ -112,15 +113,15 @@ export const createDeveloper = async (
   preparedData: unknown
 ): Promise<void> => {
   if (!email) {
-    throw new Error('El campo email es obligatorio para registrar un developer.');
+    throw new Error(ERRORS.FIELD_REQUIRED('email', 'registering developer'));
   }
 
   if (!name) {
-    throw new Error('El campo name es obligatorio para registrar un developer.');
+    throw new Error(ERRORS.FIELD_REQUIRED('name', 'registering developer'));
   }
 
   if (!preparedData) {
-    throw new Error('El campo preparedData es obligatorio para registrar un developer.');
+    throw new Error(ERRORS.FIELD_REQUIRED('preparedData', 'registering developer'));
   }
 
   try {
