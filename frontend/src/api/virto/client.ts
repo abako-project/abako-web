@@ -6,7 +6,7 @@
  */
 
 import axios, { AxiosError } from 'axios';
-import { virtoConfig, API_TIMEOUT } from '../config';
+import { virtoConfig, API_TIMEOUTS } from '../config';
 
 /**
  * Axios client for Virto API.
@@ -14,7 +14,7 @@ import { virtoConfig, API_TIMEOUT } from '../config';
  */
 export const virtoClient = axios.create({
   baseURL: virtoConfig.baseURL,
-  timeout: API_TIMEOUT,
+  timeout: API_TIMEOUTS.default,
   headers: {
     'Content-Type': 'application/json',
     Accept: 'application/json',

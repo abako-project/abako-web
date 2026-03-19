@@ -6,7 +6,7 @@
  */
 
 import { adapterClient, handleApiError } from './client';
-import { adapterConfig } from '../config';
+import { adapterConfig, API_TIMEOUTS } from '../config';
 
 // ---------------------------------------------------------------------------
 // Type definitions
@@ -112,6 +112,7 @@ export async function sign(extrinsicData: SignRequest, token: string): Promise<S
         headers: {
           Authorization: `Bearer ${token}`,
         },
+        timeout: API_TIMEOUTS.blockchainWrite,
       }
     );
     return response.data;

@@ -22,7 +22,7 @@
  */
 
 import axios, { AxiosError, AxiosInstance } from 'axios';
-import { contractsConfig, API_TIMEOUT } from '../config';
+import { contractsConfig, API_TIMEOUTS } from '../config';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -104,7 +104,7 @@ export class ContractsApiError extends Error {
 
 const contractsClient: AxiosInstance = axios.create({
   baseURL: contractsConfig.baseURL,
-  timeout: API_TIMEOUT,
+  timeout: API_TIMEOUTS.default,
   headers: {
     'Content-Type': 'application/json',
     Accept: 'application/json',
@@ -208,7 +208,8 @@ export async function callProjectMethod(
   try {
     const response = await contractsClient.post<CallResponse>(
       contractsConfig.endpoints.projects.call(contractAddress, methodName),
-      { data }
+      { data },
+      { timeout: API_TIMEOUTS.blockchainWrite }
     );
     return response.data;
   } catch (error) {
@@ -229,7 +230,8 @@ export async function deployProjectV5(
   try {
     const response = await contractsClient.post<DeployResponse>(
       contractsConfig.endpoints.projects.deploy.v5,
-      { name, dao_address: daoAddress }
+      { name, dao_address: daoAddress },
+      { timeout: API_TIMEOUTS.blockchainWrite }
     );
     return response.data;
   } catch (error) {
@@ -250,7 +252,8 @@ export async function deployProjectV6(
   try {
     const response = await contractsClient.post<DeployResponse>(
       contractsConfig.endpoints.projects.deploy.v6,
-      { name, dao_address: daoAddress }
+      { name, dao_address: daoAddress },
+      { timeout: API_TIMEOUTS.blockchainWrite }
     );
     return response.data;
   } catch (error) {
@@ -311,7 +314,8 @@ export async function callCalendarMethod(
   try {
     const response = await contractsClient.post<CallResponse>(
       contractsConfig.endpoints.calendar.call(methodName),
-      data
+      data,
+      { timeout: API_TIMEOUTS.blockchainWrite }
     );
     return response.data;
   } catch (error) {
@@ -330,7 +334,8 @@ export async function deployCalendarV5(
   try {
     const response = await contractsClient.post<DeployResponse>(
       contractsConfig.endpoints.calendar.deploy,
-      params
+      params,
+      { timeout: API_TIMEOUTS.blockchainWrite }
     );
     return response.data;
   } catch (error) {
