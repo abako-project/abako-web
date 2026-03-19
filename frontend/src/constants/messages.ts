@@ -6,6 +6,11 @@
  * find, translate, and keep consistent across the application.
  */
 
+// -- Errors -----------------------------------------------------------------
+export const ERRORS = {
+  FIELD_REQUIRED: (field: string, action: string) => `Field ${field} is required for ${action}.`
+} as const;
+
 // -- Scope ------------------------------------------------------------------
 export const SCOPE_SUBMITTED = 'Scope submitted successfully' as const;
 export const SCOPE_ACCEPTED = 'Scope accepted successfully' as const;

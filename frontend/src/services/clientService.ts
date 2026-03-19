@@ -9,6 +9,7 @@ import {
   getClientAttachment as apiGetClientAttachment,
 } from '@/api/adapter';
 import type { Client } from '@/types';
+import { ERRORS } from '@/constants/messages';
 
 // Types
 
@@ -23,7 +24,7 @@ interface ClientConnectResponse {
 export const clientConnect = async (email: string): Promise<ClientConnectResponse> => {
   try {
     if (!email) {
-      throw new Error('El campo email es obligatorio para loguear un cliente.');
+      throw new Error(ERRORS.FIELD_REQUIRED('email', 'logging in client'));
     }
 
     const response = await customConnect({ userId: email });
@@ -79,15 +80,15 @@ export const createClient = async (
   preparedData: unknown
 ): Promise<void> => {
   if (!email) {
-    throw new Error('El campo email es obligatorio para crear un cliente.');
+    throw new Error(ERRORS.FIELD_REQUIRED('email', 'creating client'));
   }
 
   if (!name) {
-    throw new Error('El campo name es obligatorio para registrar un cliente.');
+    throw new Error(ERRORS.FIELD_REQUIRED('name', 'registering client'));
   }
 
   if (!preparedData) {
-    throw new Error('El campo preparedData es obligatorio para registrar un cliente.');
+    throw new Error(ERRORS.FIELD_REQUIRED('preparedData', 'registering client'));
   }
 
   try {
