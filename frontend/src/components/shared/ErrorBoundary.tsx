@@ -1,8 +1,10 @@
 import { Component, ReactNode, ErrorInfo } from 'react';
+import { useQueryErrorResetBoundary } from '@tanstack/react-query';
 
 interface Props {
   children: ReactNode;
   fallback?: ReactNode;
+  onReset?: () => void;
 }
 
 interface State {
@@ -11,12 +13,9 @@ interface State {
 }
 
 /**
- * ErrorBoundary - Catches React rendering errors
- *
- * Displays a friendly error message with a retry button.
- * Can be customized with a fallback UI.
+ * ErrorBoundaryClass - Catches React rendering errors
  */
-export class ErrorBoundary extends Component<Props, State> {
+class ErrorBoundaryClass extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
     this.state = { hasError: false };
@@ -31,6 +30,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   handleReset = () => {
+    this.props.onReset?.();
     this.setState({ hasError: false, error: undefined });
   };
 
@@ -41,25 +41,25 @@ export class ErrorBoundary extends Component<Props, State> {
       }
 
       return (
-        <div className="min-h-screen flex items-center justify-center bg-[#141414] p-4">
+        <div className="min-h-[50vh] flex items-center justify-center p-4">
           <div className="max-w-md w-full p-8 rounded-xl bg-[#231F1F] border border-[#3D3D3D]">
             <div className="flex items-center gap-3 mb-4">
               <i className="ri-error-warning-line text-3xl text-[#fa4d4d]"></i>
               <h1 className="text-2xl font-bold text-[#F5F5F5]">
-                Something went wrong
+                Oops! Something went wrong
               </h1>
             </div>
 
             <p className="text-[#9B9B9B] mb-6">
-              We encountered an unexpected error. Please try again.
+              An unexpected error occurred. Please try again or refresh the page.
             </p>
 
             {this.state.error && (
               <details className="mb-6 p-4 rounded-lg bg-[#141414] border border-[#3D3D3D]">
-                <summary className="cursor-pointer text-sm text-[#9B9B9B] mb-2">
-                  Error details
+                <summary className="cursor-pointer text-sm text-[#9B9B9B] mb-2 font-medium">
+                  Technical details
                 </summary>
-                <pre className="text-xs text-[#fa4d4d] overflow-x-auto">
+                <pre className="text-xs text-[#fa4d4d] overflow-x-auto mt-2 whitespace-pre-wrap">
                   {this.state.error.message}
                 </pre>
               </details>
@@ -67,9 +67,9 @@ export class ErrorBoundary extends Component<Props, State> {
 
             <button
               onClick={this.handleReset}
-              className="w-full px-4 py-3 rounded-xl bg-[#36D399] text-[#141414] font-semibold hover:shadow-lg transition-shadow"
+              className="w-full px-4 py-3 rounded-xl bg-[#36D399] text-[#141414] font-semibold hover:bg-[#2bb881] transition-colors"
             >
-              Try again
+              Retry
             </button>
           </div>
         </div>
@@ -78,4 +78,16 @@ export class ErrorBoundary extends Component<Props, State> {
 
     return this.props.children;
   }
+}
+
+/**
+ * ErrorBoundary - Wrapping functional component that integrates React Query reset functionality
+ */
+export function ErrorBoundary({ children, fallback }: { children: ReactNode; fallback?: ReactNode }) {
+  const { reset } = useQueryErrorResetBoundary();
+  return (
+    <ErrorBoundaryClass onReset={reset} fallback={fallback}>
+      {children}
+    </ErrorBoundaryClass>
+  );
 }
