@@ -6,7 +6,7 @@
  */
 
 import { adapterClient, handleApiError } from './client';
-import { adapterConfig } from '../config';
+import { adapterConfig, API_TIMEOUTS } from '../config';
 
 // ---------------------------------------------------------------------------
 // Type definitions
@@ -167,6 +167,7 @@ export async function deployProject(
         headers: {
           Authorization: `Bearer ${token}`,
         },
+        timeout: API_TIMEOUTS.blockchainWrite,
       }
     );
     return response.data;

@@ -10,7 +10,7 @@
  */
 
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
-import { adapterConfig, API_TIMEOUT } from '../config';
+import { adapterConfig, API_TIMEOUTS } from '../config';
 import { useAuthStore } from '@stores/authStore';
 import { performWebAuthnLogin } from '@/lib/virto-sdk';
 
@@ -21,7 +21,7 @@ import { performWebAuthnLogin } from '@/lib/virto-sdk';
 // Shared axios instance for all adapter API modules
 export const adapterClient = axios.create({
   baseURL: adapterConfig.baseURL,
-  timeout: API_TIMEOUT,
+  timeout: API_TIMEOUTS.default,
   headers: {
     'Content-Type': 'application/json',
     Accept: 'application/json',

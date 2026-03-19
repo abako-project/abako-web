@@ -165,6 +165,15 @@ export const contractsConfig = {
 // Shared config
 // ---------------------------------------------------------------------------
 
-export const API_TIMEOUT = 160000;
+/**
+ * Named timeout buckets (in ms) used by axios clients. Use `default` for typical
+ * REST interactions (30s) and `blockchainWrite` for on-chain deploy/sign flows
+ * that may wait on block finalization (60s). Individual requests can override
+ * the timeout by selecting the appropriate bucket.
+ */
+export const API_TIMEOUTS = {
+  default: 30_000,
+  blockchainWrite: 60_000,
+} as const;
 
 export const CALENDAR_CONTRACT_ADDRESS = CALENDAR_ADDRESS;
