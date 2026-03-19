@@ -6,7 +6,7 @@
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://dev.abako.xyz';
 
-const CALENDAR_ADDRESS = 'Dd34LSU53MLwJpq4wfHmDFwAifJrcaPbd1qTCGZcR7iXQkd';
+const CALENDAR_ADDRESS = import.meta.env.VITE_CALENDAR_ADDRESS || 'Dd34LSU53MLwJpq4wfHmDFwAifJrcaPbd1qTCGZcR7iXQkd';
 
 // ---------------------------------------------------------------------------
 // Adapter API (NestJS) - Clients, Developers, Projects, Milestones, Calendar
