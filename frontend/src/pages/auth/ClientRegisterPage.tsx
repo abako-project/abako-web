@@ -1,5 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useRegister } from '@hooks/useAuth';
 import {
   useWalletRegister,
@@ -10,6 +12,10 @@ import { performWebAuthnRegister } from '@lib/virto-sdk';
 import { SUPPORTED_WALLETS, getWalletAccounts } from '@lib/wallet-connect';
 import type { WalletExtension, WalletAccount } from '@lib/wallet-connect';
 import { Spinner } from '@components/ui/Spinner';
+import {
+  clientRegisterSchema,
+  type ClientRegisterFormValues,
+} from '@/lib/schemas/authSchemas';
 
 // ---------------------------------------------------------------------------
 // Wallet icon helpers (inline SVGs — same as WalletLoginPage)
@@ -78,11 +84,21 @@ export default function ClientRegisterPage() {
   const walletRegisterMutation = useWalletRegister();
 
   // ----- WebAuthn form state -----
-  const [email, setEmail] = useState('');
-  const [name, setName] = useState('');
   const [status, setStatus] = useState('');
-  const [isRegistering, setIsRegistering] = useState(false);
-  const [error, setError] = useState('');
+  const [submitError, setSubmitError] = useState('');
+
+  const {
+    register: formRegister,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+    reset,
+  } = useForm<ClientRegisterFormValues>({
+    resolver: zodResolver(clientRegisterSchema),
+    defaultValues: {
+      email: '',
+      name: '',
+    },
+  });
 
   // ----- Wallet flow state -----
   const [showWalletFlow, setShowWalletFlow] = useState(false);
@@ -102,18 +118,23 @@ export default function ClientRegisterPage() {
 
   // ----- WebAuthn handlers -----
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setError('');
+  const handlePasskeySubmit = async ({
+    email,
+    name,
+  }: ClientRegisterFormValues) => {
+    setSubmitError('');
     setStatus('');
-    setIsRegistering(true);
 
     try {
-      const preparedData = await performWebAuthnRegister(email, name, (progressStatus) => {
-        setStatus(progressStatus);
-      });
+      const preparedData = await performWebAuthnRegister(
+        email,
+        name,
+        (progressStatus) => {
+          setStatus(progressStatus);
+        },
+      );
 
-      setStatus('Creating your account...');
+      setStatus('Creando tu cuenta...');
       await registerMutation.mutateAsync({
         email,
         name,
@@ -121,17 +142,17 @@ export default function ClientRegisterPage() {
         preparedData,
       });
 
-      setStatus('Registration successful! Redirecting to login...');
+      setStatus('Registro exitoso. Te estamos redirigiendo al inicio de sesión...');
+      reset();
       setTimeout(() => {
         navigate('/login/client');
       }, 1500);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
-      setError(errorMessage);
-      setStatus('Registration failed');
+      const errorMessage =
+        err instanceof Error ? err.message : 'Ocurrió un error desconocido';
+      setSubmitError(errorMessage);
+      setStatus('El registro no se completó');
       console.error('Client registration error:', errorMessage);
-    } finally {
-      setIsRegistering(false);
     }
   };
 
@@ -484,7 +505,11 @@ export default function ClientRegisterPage() {
         renderWalletFlow()
       ) : (
         <>
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form
+            onSubmit={handleSubmit(handlePasskeySubmit)}
+            className="space-y-6"
+            noValidate
+          >
             {/* Email Input */}
             <div>
               <label
@@ -495,17 +520,13 @@ export default function ClientRegisterPage() {
                   color: 'var(--text-dark-secondary, rgba(255,255,255,0.7))',
                 }}
               >
-                Email
+                Correo electrónico
               </label>
               <input
                 id="email"
                 type="email"
-                name="email"
-                placeholder="your-email@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                disabled={isRegistering}
+                placeholder="tu-correo@ejemplo.com"
+                disabled={isSubmitting}
                 className="w-full font-medium"
                 style={{
                   height: '44px',
@@ -517,7 +538,11 @@ export default function ClientRegisterPage() {
                   color: 'var(--text-dark-primary, #f5f5f5)',
                   outline: 'none',
                 }}
+                {...formRegister('email')}
               />
+              {errors.email?.message && (
+                <p className="mt-2 text-sm text-red-400">{errors.email.message}</p>
+              )}
             </div>
 
             {/* Name Input */}
@@ -530,17 +555,13 @@ export default function ClientRegisterPage() {
                   color: 'var(--text-dark-secondary, rgba(255,255,255,0.7))',
                 }}
               >
-                Name
+                Nombre
               </label>
               <input
                 id="name"
                 type="text"
-                name="name"
-                placeholder="Your Name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                disabled={isRegistering}
+                placeholder="Tu nombre"
+                disabled={isSubmitting}
                 className="w-full font-medium"
                 style={{
                   height: '44px',
@@ -552,10 +573,14 @@ export default function ClientRegisterPage() {
                   color: 'var(--text-dark-primary, #f5f5f5)',
                   outline: 'none',
                 }}
+                {...formRegister('name')}
               />
+              {errors.name?.message && (
+                <p className="mt-2 text-sm text-red-400">{errors.name.message}</p>
+              )}
             </div>
 
-            {error && (
+            {submitError && (
               <div
                 className="p-3"
                 style={{
@@ -564,14 +589,14 @@ export default function ClientRegisterPage() {
                   borderRadius: '12px',
                 }}
               >
-                <p style={{ fontSize: '14px', color: '#ef4444' }}>{error}</p>
+                <p style={{ fontSize: '14px', color: '#ef4444' }}>{submitError}</p>
               </div>
             )}
 
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={isRegistering}
+              disabled={isSubmitting}
               className="w-full font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
               style={{
                 height: '44px',
@@ -580,13 +605,13 @@ export default function ClientRegisterPage() {
                 color: 'var(--text-light-primary, #141414)',
                 borderRadius: '12px',
                 border: 'none',
-                cursor: isRegistering ? 'not-allowed' : 'pointer',
+                cursor: isSubmitting ? 'not-allowed' : 'pointer',
               }}
             >
-              {isRegistering ? 'Registering...' : 'Register with Passkey'}
+              {isSubmitting ? 'Registrando...' : 'Registrarse con Passkey'}
             </button>
 
-            {status && !error && (
+            {status && !submitError && (
               <p
                 className="text-center"
                 style={{
@@ -610,7 +635,7 @@ export default function ClientRegisterPage() {
           <button
             type="button"
             onClick={handleOpenWalletFlow}
-            disabled={isRegistering}
+            disabled={isSubmitting}
             className="w-full font-semibold transition-opacity hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
             style={{
               height: '44px',
@@ -619,7 +644,7 @@ export default function ClientRegisterPage() {
               color: 'var(--text-dark-primary, #f5f5f5)',
               borderRadius: '12px',
               border: '1px solid var(--base-border, #3d3d3d)',
-              cursor: isRegistering ? 'not-allowed' : 'pointer',
+              cursor: isSubmitting ? 'not-allowed' : 'pointer',
             }}
           >
             {/* Polkadot dot icon */}
@@ -630,7 +655,7 @@ export default function ClientRegisterPage() {
               <circle cx="5" cy="16" r="3" fill="#E6007A" />
               <circle cx="27" cy="16" r="3" fill="#E6007A" />
             </svg>
-            Sign up with Wallet
+            Registrarse con Wallet
           </button>
         </>
       )}

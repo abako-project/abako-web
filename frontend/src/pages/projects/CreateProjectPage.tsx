@@ -15,7 +15,6 @@ import * as React from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { useEnums } from '@hooks/useEnums';
 import { useCreateProject } from '@hooks/useProjects';
 import { useAuthStore } from '@/stores/authStore';
@@ -24,6 +23,11 @@ import { Spinner } from '@components/ui/Spinner';
 import { BUDGETS, DELIVERY_TIMES } from '@/types';
 import type { EnumsResponse } from '@/types';
 import type { UseFormRegister, FieldErrors } from 'react-hook-form';
+import {
+  createProjectSchema,
+  SPECIFIC_DATE_INDEX,
+  type CreateProjectFormValues,
+} from '@/lib/schemas/projectSchemas';
 
 // ---------------------------------------------------------------------------
 // Shared CSS classes
@@ -44,34 +48,11 @@ const BTN_BACK_CLS =
   'flex items-center gap-2 h-11 px-6 rounded-[var(--radi-6,12px)] border border-[var(--base-border,#3d3d3d)] bg-[var(--base-surface-2,#231f1f)] text-[var(--text-dark-primary,#f5f5f5)] hover:border-[#555] transition-colors text-sm font-medium';
 
 // ---------------------------------------------------------------------------
-// Validation schema
+// Validation schema (shared in @/lib/schemas/projectSchemas)
 // ---------------------------------------------------------------------------
 
-const createProjectSchema = z.object({
-  title: z
-    .string()
-    .min(1, 'Title is required')
-    .max(200, 'Title must be 200 characters or less'),
-  summary: z
-    .string()
-    .max(280, 'Summary must be 280 characters or less')
-    .optional()
-    .default(''),
-  description: z
-    .string()
-    .min(1, 'Description is required')
-    .max(5000, 'Description must be 5000 characters or less'),
-  url: z.string().optional().default(''),
-  projectType: z.coerce.number().min(0, 'Please select a project type'),
-  budget: z.coerce.number().min(0, 'Please select a budget range'),
-  deliveryTime: z.coerce.number().min(0, 'Please select a delivery time'),
-  deliveryDate: z.string().optional().default(''),
-});
-
-type FormData = z.infer<typeof createProjectSchema>;
-
 // Fields validated per step
-const STEP1_FIELDS: (keyof FormData)[] = [
+const STEP1_FIELDS: (keyof CreateProjectFormValues)[] = [
   'title',
   'summary',
   'description',
@@ -100,7 +81,7 @@ export default function CreateProjectPage() {
     trigger,
     getValues,
     formState: { errors, isSubmitting },
-  } = useForm<FormData>({
+  } = useForm<CreateProjectFormValues>({
     resolver: zodResolver(createProjectSchema),
     defaultValues: {
       title: '',
@@ -126,8 +107,8 @@ export default function CreateProjectPage() {
   }
 
   async function goToStep3() {
-    const fields: (keyof FormData)[] = ['budget', 'deliveryTime'];
-    if (deliveryTimeValue === 3) fields.push('deliveryDate');
+    const fields: (keyof CreateProjectFormValues)[] = ['budget', 'deliveryTime'];
+    if (deliveryTimeValue === SPECIFIC_DATE_INDEX) fields.push('deliveryDate');
     const valid = await trigger(fields);
     if (valid) setCurrentStep(3);
   }
@@ -169,7 +150,7 @@ export default function CreateProjectPage() {
 
   // ---- Submit (step 3) ----
 
-  const onSubmit = async (data: FormData) => {
+  const onSubmit = async (data: CreateProjectFormValues) => {
     try {
       const result = await createProject.mutateAsync({
         title: data.title,
@@ -298,8 +279,8 @@ export default function CreateProjectPage() {
 // ---------------------------------------------------------------------------
 
 interface Step1Props {
-  register: UseFormRegister<FormData>;
-  errors: FieldErrors<FormData>;
+  register: UseFormRegister<CreateProjectFormValues>;
+  errors: FieldErrors<CreateProjectFormValues>;
   summaryLength: number;
   enums: EnumsResponse | undefined;
   onNext: () => void;
@@ -450,8 +431,8 @@ function Step1({ register, errors, summaryLength, enums, onNext }: Step1Props) {
 // ---------------------------------------------------------------------------
 
 interface Step2Props {
-  register: UseFormRegister<FormData>;
-  errors: FieldErrors<FormData>;
+  register: UseFormRegister<CreateProjectFormValues>;
+  errors: FieldErrors<CreateProjectFormValues>;
   enums: EnumsResponse | undefined;
   deliveryTimeValue: number;
   objectives: string[];
@@ -636,7 +617,8 @@ function Step2({
                     </span>
 
                     {/* Date picker inline when "Specific date" is selected */}
-                    {index === 3 && deliveryTimeValue === 3 && (
+                    {index === SPECIFIC_DATE_INDEX &&
+                      deliveryTimeValue === SPECIFIC_DATE_INDEX && (
                       <input
                         type="date"
                         className={`${INPUT_CLS} ml-2 w-44`}
@@ -680,7 +662,7 @@ function Step2({
 // ---------------------------------------------------------------------------
 
 interface Step3Props {
-  values: FormData;
+  values: CreateProjectFormValues;
   objectives: string[];
   constraints: string[];
   enums: EnumsResponse | undefined;
@@ -709,8 +691,8 @@ function Step3({
     '—';
 
   const deliveryDisplay =
-    values.deliveryTime === 3 && values.deliveryDate
-      ? `Specific date: ${formatDate(values.deliveryDate)}`
+    values.deliveryTime === SPECIFIC_DATE_INDEX && values.deliveryDate
+      ? `Fecha específica: ${formatDate(values.deliveryDate)}`
       : deliveryTimeLabel;
 
   const nonEmptyObjectives = objectives.filter((o) => o.trim() !== '');
